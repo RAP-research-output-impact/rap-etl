@@ -140,5 +140,10 @@ def srlz(g):
     print ng.serialize(format="turtle")
 
 
+def to_nt(g, path):
+    g.serialize(path, format="nt")
+    return True
+
+
 def hash_local_name(prefix, value):
     return prefix + '-' + hashlib.md5(value).hexdigest()

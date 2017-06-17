@@ -4,8 +4,6 @@ Command-line script for posting RDF files to the VIVO API.
 
 import argparse
 import os
-from Queue import Queue
-from threading import Thread
 import time
 
 from rdflib import Graph

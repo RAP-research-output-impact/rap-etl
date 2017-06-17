@@ -17,6 +17,7 @@ from rdflib import Graph, Literal
 from rdflib.resource import Resource
 from slugify import slugify
 
+
 # local
 from lib import backend
 from settings import (
@@ -35,7 +36,6 @@ from namespaces import (
     VIVO,
     XSD
 )
-random.seed(SEED)
 
 
 def ln(uri):
@@ -89,9 +89,18 @@ def add_keyword_plus(value, pub_uri):
     return uri, g
 
 
-def add_author_keyword(value, pub_uri):
+def add_keyword_plus_data_property(value, pub_uri):
     """
     Leave keywords plus as is.
+    """
+    g = Graph()
+    g.add((pub_uri, WOS.keywordPlus, Literal(value)))
+    return g
+
+
+def add_author_keyword(value, pub_uri):
+    """
+    Leave author keywords as is.
     """
     g = Graph()
     slug = slugify(value)
@@ -100,6 +109,15 @@ def add_author_keyword(value, pub_uri):
     g.add((uri, RDFS.label, Literal(value)))
     g.add((pub_uri, WOS.hasAuthorKeyword, uri))
     return uri, g
+
+
+def add_author_keyword_data_property(value, pub_uri):
+    """
+    Leave keywords plus as is.
+    """
+    g = Graph()
+    g.add((pub_uri, WOS.authorKeyword, Literal(value)))
+    return g
 
 
 class WosRecord(object):
@@ -569,7 +587,7 @@ class RDFRecord(WosRecord):
         meta = self.meta()
         # data properties
         data_props = [
-            ('author_list', WOS.authorList),
+            #('author_list', WOS.authorList),
             ('abstract', BIBO.abstract),
             ('funding_acknowledgement', WOS.fundingText),
             ('volume', BIBO.volume),
@@ -578,7 +596,7 @@ class RDFRecord(WosRecord):
             ('end', BIBO.pageEnd),
             ('page_count', BIBO.numPages),
             ('doi', BIBO.doi),
-            ('cite_key', WOS.citeKey),
+            #('cite_key', WOS.citeKey),
             ('reference_count', WOS.referenceCount),
             ('citation_count', WOS.citationCount)
         ]
@@ -606,6 +624,7 @@ def get_data_files():
 
 
 def sample_data_files(num):
+    random.seed(SEED)
     data_files = get_data_files()
     to_load = [data_files[n] for n in random.sample(xrange(len(data_files)), num)]
     return to_load

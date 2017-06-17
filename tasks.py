@@ -12,8 +12,8 @@ from publications import (
     RDFRecord,
     sample_data_files,
     get_data_files,
-    add_author_keyword,
-    add_keyword_plus,
+    add_author_keyword_data_property,
+    add_keyword_plus_data_property,
 )
 
 
@@ -161,8 +161,7 @@ class KeywordsPlus(Base):
         logger.info("Indexing publication keywords")
         for rec in yield_files(self.sample):
             for kwp in rec.keywords_plus():
-                kuri, kg = add_keyword_plus(kwp, rec.uri)
-                kwp_g += kg
+                kwp_g += add_keyword_plus_data_property(kwp, rec.uri)
 
         self.serialize(kwp_g)
 
@@ -180,8 +179,7 @@ class AuthorKeywords(Base):
         logger.info("Indexing publication keywords")
         for rec in yield_files(self.sample):
             for kw in rec.author_keywords():
-                kuri, kg = add_author_keyword(kw, rec.uri)
-                outg += kg
+                outg += add_author_keyword_data_property(kw, rec.uri)
 
         self.serialize(outg)
 
@@ -207,4 +205,4 @@ class DoPubProcess(luigi.Task):
 
 if __name__ == '__main__':
     #"--local-scheduler",
-    luigi.run(["--sample=500", "--workers=3"], main_task_cls=DoPubProcess)
+    luigi.run(["--sample=-1", "--workers=3"], main_task_cls=DoPubProcess)
