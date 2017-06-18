@@ -28,26 +28,25 @@ from settings import (
     logger,
     NS,
     AFFILIATION_NG,
+    PEOPLE_IDENTIFIERS_GRAPH,
+    PEOPLE_EMAIL_GRAPH,
+    PEOPLE_DTU_DAIS_GRAPH,
     ORCID_FILE,
     RID_FILE,
-    AU_ID_FILE
+    AU_ID_FILE,
+    PEOPLE_AUTHORSHIP
 )
 
 
 class Researcher(object):
 
-    def __init__(self, profile):
+    def __init__(self, profile, dais_ids):
         self.profile = profile
+        self.dais_ids = dais_ids
         # Use dais ids as URI key. If multiple
         # exist, sort and take the first one.
-        dais_ids = profile['dais']
-        if type(dais_ids) == list:
-            dais_ids.sort()
-            self.vid = dais_ids[0]
-        else:
-            dids = [d for d in dais_ids.split("|")]
-            dids.sort()
-            self.vid = dids[0]
+        dais_ids.sort()
+        self.vid = dais_ids[0]
         self.uri = D["person-" + self.vid]
 
     @property
@@ -81,11 +80,7 @@ class Researcher(object):
         person.set(WOS.alphaBrowse, Literal(data['lastName'][0].lower()))
 
         # dais
-        if type(data['dais']) == str:
-            dais_ids = [data['dais']]
-        else:
-            dais_ids = data['dais']
-        for did in dais_ids:
+        for did in self.dais_ids:
             person.set(WOS.daisNg, Literal(did))
 
         # Vcard individual
@@ -161,7 +156,6 @@ def build_orcid_rid_profiles():
     :return: Graph as nt file
     """
     q = rq_prefixes + """
-    #select ?dais (SAMPLE(?fullName) AS ?name) (group_concat(distinct ?aship ; separator = "|") AS ?contrib)
     select 
         (COUNT(?dais) as ?num)
         ?dais 
@@ -169,7 +163,6 @@ def build_orcid_rid_profiles():
         (SAMPLE(?first) AS ?firstName) 
         (SAMPLE(?last) AS ?lastName) 
         (group_concat(distinct ?email ; separator = "|") AS ?emails) 
-        (group_concat(distinct ?aship ; separator = "|") AS ?authorships)
     where {
         ?aship a vivo:Authorship ;
             wos:fullName ?fullName ;
@@ -179,6 +172,10 @@ def build_orcid_rid_profiles():
             wos:lastName ?last ;
             wos:email ?email ;
             vivo:relates ?addr .
+        FILTER NOT EXISTS {
+            ?aship vivo:relates ?person .
+            ?person a foaf:Person .
+        }
     }
     GROUP BY ?dais
     """
@@ -214,20 +211,18 @@ def build_orcid_rid_profiles():
             logger.info("Skipping {} - no RID or ORCID".format(dais))
             continue
         dais_ids = auid_to_dais[orcid or rid]
+        for did in dais_ids:
+            if did in done:
+                continue
         logger.info("Building profile for {} with {}.".format(name, orcid or rid))
         done += dais_ids
-        vper = person.asdict()
-        vper['dais'] = dais_ids
-        vper = Researcher(person)
+        vper = Researcher(person, dais_ids)
         if orcid is not None:
             g.add((vper.uri, WOS.orcid, Literal(orcid)))
         elif rid is not None:
             g.add((vper.uri, VIVO.researcherId, Literal(rid)))
         g += vper.to_rdf()
-        # authorship
-        for aship in person.authorships.split("|"):
-            g.add((URIRef(aship), VIVO.relates, vper.uri))
-    backend.sync_updates("http://localhost/data/people-identifiers", g)
+    backend.sync_updates(PEOPLE_IDENTIFIERS_GRAPH, g)
 
 
 def build_email_profiles():
@@ -242,7 +237,6 @@ def build_email_profiles():
             (SAMPLE(?first) AS ?firstName) 
             (SAMPLE(?last) AS ?lastName) 
             (group_concat(distinct ?daisNg ; separator = "|") AS ?dais) 
-            (group_concat(distinct ?aship ; separator = "|") AS ?authorships)
         where {
             ?aship a vivo:Authorship ;
                 wos:fullName ?fullName ;
@@ -257,7 +251,7 @@ def build_email_profiles():
             }
         }
         GROUP BY ?email
-        HAVING (?num >= 5)
+        HAVING (?num >= 3)
         ORDER BY DESC(?num)
     """
     logger.info("Email profiles query:\n" + q)
@@ -266,13 +260,56 @@ def build_email_profiles():
     for person in vstore.query(q):
         name = person.name.toPython()
         email = person.email.toPython()
+        dais_ids = [d for d in person.dais.toPython().split("|")]
         logger.info("Building profile for {} with {}.".format(name, email))
-        vper = Researcher(person)
+        vper = Researcher(person, dais_ids)
         g += vper.to_rdf()
-        # authorship
-        for aship in person.authorships.toPython().split("|"):
-            g.add((URIRef(aship), VIVO.relates, vper.uri))
-    backend.sync_updates("http://localhost/data/people-email", g)
+    backend.sync_updates(PEOPLE_EMAIL_GRAPH, g)
+
+
+def build_dtu_dais_profiles():
+    """
+    Builds profiles for DTU researchers by DAIS and a minimum number of publications.
+    """
+    q = rq_prefixes + """
+        select 
+            (COUNT(?aship) as ?num)
+            ?dais
+            (SAMPLE(?fullName) AS ?name) 
+            (SAMPLE(?first) AS ?firstName) 
+            (SAMPLE(?last) AS ?lastName) 
+            (group_concat(distinct ?email ; separator = "|") AS ?emails) 
+        where {
+            ?aship a vivo:Authorship ;
+                vivo:relates ?addr ;
+                wos:fullName ?fullName ;
+                rdfs:label ?label ;
+                wos:daisNg ?dais ;
+                wos:email ?email ;
+                wos:firstName ?first ;
+                wos:lastName ?last .
+            ?addr a wos:Address ;
+                vivo:relates d:org-technical-university-of-denmark .
+            FILTER NOT EXISTS {
+                ?p a foaf:Person ;
+                vivo:relatedBy ?aship .
+            }
+        }
+        GROUP BY ?dais
+        HAVING (?num >= 3)
+        ORDER BY DESC(?num)
+    """
+    logger.info("DTU DAIS profiles query:\n" + q)
+    vstore = backend.get_store()
+    g = Graph()
+    for person in vstore.query(q):
+        name = person.name.toPython()
+        dais = person.dais.toPython()
+        dais_ids = [dais]
+        logger.info("Building profile for {} with {}.".format(name, dais))
+        vper = Researcher(person, dais_ids)
+        g += vper.to_rdf()
+    backend.sync_updates(PEOPLE_DTU_DAIS_GRAPH, g)
 
 
 def build_unified_affiliation():
@@ -299,9 +336,8 @@ def build_unified_affiliation():
     }
     """
     logger.info("Affiliation query:\n" + q)
-
     g = vstore.query(q).graph
-    backend.post_updates(AFFILIATION_NG, g)
+    vstore.bulk_add(AFFILIATION_NG, g)
 
 
 def build_dtu_people():
@@ -328,7 +364,7 @@ def build_dtu_people():
     logger.info("DTU people query:\n" + q)
 
     g = vstore.query(q).graph
-    backend.post_updates(AFFILIATION_NG, g)
+    vstore.bulk_add(AFFILIATION_NG, g)
 
 
 def remove_internal_external():
@@ -351,6 +387,36 @@ def remove_internal_external():
         vstore.bulk_remove(AFFILIATION_NG, g)
     except ResultException:
         pass
+
+
+def add_authorship_links():
+    """
+    Create people to authorship links.
+    """
+    logger.info("Adding additional authorships.")
+    vstore = backend.get_store()
+    while True:
+        logger.info("Fetching people to authorship batch.")
+        q = rq_prefixes + """
+        CONSTRUCT {
+            ?aship vivo:relates ?p .
+        }
+        WHERE {
+            ?p a foaf:Person ;
+                wos:daisNg ?dais .
+            ?aship a vivo:Authorship ;
+                wos:daisNg ?dais .
+            FILTER NOT EXISTS { ?aship vivo:relates ?p }
+        }
+        LIMIT 500
+        """
+        logger.info("Authorship query:\n" + q)
+        try:
+            g = vstore.query(q).graph
+            vstore.bulk_add(PEOPLE_AUTHORSHIP, g)
+        except ResultException:
+            break
+    return True
 
 
 def index():
@@ -376,12 +442,14 @@ def index():
                     continue
                 orcid = cm[0]['orcid']
                 rid = cm[0]['r_id']
-                if (orcid is not None) and (orcid not in dais_orcid[dais]):
+                if (orcid != "") and (orcid is not None) and (orcid not in dais_orcid[dais]):
                     dais_orcid[dais].append(orcid)
                     au_identifier_to_dais[orcid].append(dais)
-                if (rid is not None) and (rid not in dais_rid[dais]):
+                elif (rid != "") and (rid is not None) and (rid not in dais_rid[dais]):
                     dais_rid[dais].append(rid)
                     au_identifier_to_dais[rid].append(dais)
+                else:
+                    continue
             elif len(cm) > 0:
                 logger.info("Multiple last name match for UT {} and name {}.".format(pub.ut, au['display_name']))
                 raise Exception("Multiple matches")
@@ -400,6 +468,8 @@ if __name__ == "__main__":
     index()
     build_orcid_rid_profiles()
     build_email_profiles()
+    build_dtu_dais_profiles()
+    add_authorship_links()
     build_unified_affiliation()
     build_dtu_people()
     remove_internal_external()

@@ -14,7 +14,11 @@ PUB_GRAPH = "http://localhost/data/pubs"
 CATEGORY_GRAPH = "http://localhost/data/wos-categories"
 KEYWORDS_PLUS_GRAPH = "http://localhost/data/wos-keywords-plus"
 PEOPLE_GRAPH = "http://localhost/data/people"
+PEOPLE_IDENTIFIERS_GRAPH = "http://localhost/data/people-identifiers"
+PEOPLE_EMAIL_GRAPH = "http://localhost/data/people-email"
+PEOPLE_DTU_DAIS_GRAPH = "http://localhost/data/people-dtu-dais"
 AFFILIATION_NG = "http://localhost/data/people-affiliation"
+PEOPLE_AUTHORSHIP = "http://localhost/data/people-authorship"
 
 
 ORCID_FILE = 'data/dais_to_orcid.json'

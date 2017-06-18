@@ -482,6 +482,7 @@ class RDFRecord(WosRecord):
             r = Resource(g, addr_uri)
             r.set(RDF.type, WOS.Address)
             r.set(RDFS.label, Literal(addr['full_address']))
+            r.set(WOS.organizationName, Literal(addr['organization']))
             r.set(WOS.sequenceNumber, Literal(addr['number']))
             # relation to author set by authorship
             # sub orgs
