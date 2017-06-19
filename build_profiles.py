@@ -123,7 +123,10 @@ class Researcher(object):
         try:
             emails = [e for e in self.profile["emails"].split("|")]
         except KeyError:
-            emails = [self.profile['email']]
+            try:
+                emails = [self.profile['email']]
+            except KeyError:
+                emails = []
         for email in emails:
             vt = Resource(g, self.vcard_email_uri)
             vt.set(RDF.type, VCARD.Work)
@@ -151,9 +154,6 @@ def index_contributors(pub):
 def build_orcid_rid_profiles():
     """
     Builds profiles for researchers with RIDs or ORCIDs.
-    - requires an email
-    - requires a UnifiedOrg to be related to a pub
-    :return: Graph as nt file
     """
     q = rq_prefixes + """
     select 
@@ -162,7 +162,6 @@ def build_orcid_rid_profiles():
         (SAMPLE(?fullName) AS ?name) 
         (SAMPLE(?first) AS ?firstName) 
         (SAMPLE(?last) AS ?lastName) 
-        (group_concat(distinct ?email ; separator = "|") AS ?emails) 
     where {
         ?aship a vivo:Authorship ;
             wos:fullName ?fullName ;
@@ -170,7 +169,6 @@ def build_orcid_rid_profiles():
             wos:daisNg ?dais ;
             wos:firstName ?first ;
             wos:lastName ?last ;
-            wos:email ?email ;
             vivo:relates ?addr .
         FILTER NOT EXISTS {
             ?aship vivo:relates ?person .
@@ -222,7 +220,7 @@ def build_orcid_rid_profiles():
         elif rid is not None:
             g.add((vper.uri, VIVO.researcherId, Literal(rid)))
         g += vper.to_rdf()
-    backend.sync_updates(PEOPLE_IDENTIFIERS_GRAPH, g)
+    vstore.bulk_add(PEOPLE_IDENTIFIERS_GRAPH, g)
 
 
 def build_email_profiles():
@@ -264,7 +262,7 @@ def build_email_profiles():
         logger.info("Building profile for {} with {}.".format(name, email))
         vper = Researcher(person, dais_ids)
         g += vper.to_rdf()
-    backend.sync_updates(PEOPLE_EMAIL_GRAPH, g)
+    vstore.bulk_add(PEOPLE_EMAIL_GRAPH, g)
 
 
 def build_dtu_dais_profiles():
@@ -278,14 +276,12 @@ def build_dtu_dais_profiles():
             (SAMPLE(?fullName) AS ?name) 
             (SAMPLE(?first) AS ?firstName) 
             (SAMPLE(?last) AS ?lastName) 
-            (group_concat(distinct ?email ; separator = "|") AS ?emails) 
         where {
             ?aship a vivo:Authorship ;
                 vivo:relates ?addr ;
                 wos:fullName ?fullName ;
                 rdfs:label ?label ;
                 wos:daisNg ?dais ;
-                wos:email ?email ;
                 wos:firstName ?first ;
                 wos:lastName ?last .
             ?addr a wos:Address ;
@@ -309,7 +305,7 @@ def build_dtu_dais_profiles():
         logger.info("Building profile for {} with {}.".format(name, dais))
         vper = Researcher(person, dais_ids)
         g += vper.to_rdf()
-    backend.sync_updates(PEOPLE_DTU_DAIS_GRAPH, g)
+    vstore.bulk_add(PEOPLE_DTU_DAIS_GRAPH, g)
 
 
 def build_unified_affiliation():
@@ -337,7 +333,7 @@ def build_unified_affiliation():
     """
     logger.info("Affiliation query:\n" + q)
     g = vstore.query(q).graph
-    vstore.bulk_add(AFFILIATION_NG, g)
+    vstore.sync_named_graph(AFFILIATION_NG, g)
 
 
 def build_dtu_people():
@@ -364,7 +360,7 @@ def build_dtu_people():
     logger.info("DTU people query:\n" + q)
 
     g = vstore.query(q).graph
-    vstore.bulk_add(AFFILIATION_NG, g)
+    vstore.sync_named_graph(AFFILIATION_NG, g)
 
 
 def remove_internal_external():
@@ -467,8 +463,8 @@ def index():
 if __name__ == "__main__":
     index()
     build_orcid_rid_profiles()
-    build_email_profiles()
     build_dtu_dais_profiles()
+    build_email_profiles()
     add_authorship_links()
     build_unified_affiliation()
     build_dtu_people()
