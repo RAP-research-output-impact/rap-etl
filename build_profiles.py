@@ -31,6 +31,7 @@ from settings import (
     PEOPLE_IDENTIFIERS_GRAPH,
     PEOPLE_EMAIL_GRAPH,
     PEOPLE_DTU_DAIS_GRAPH,
+    PEOPLE_GRAPH,
     ORCID_FILE,
     RID_FILE,
     AU_ID_FILE,
@@ -74,10 +75,12 @@ class Researcher(object):
         g = Graph()
         person = Resource(g, self.uri)
         person.set(RDF.type, FOAF.Person)
-        person.set(RDFS.label, Literal(data['name'].strip()))
+        names = data['full_names'].split("|")
+        full_name = max(names, key=len)
+        person.set(RDFS.label, Literal(full_name.strip()))
         # For sorting
-        person.set(FOAF.familyName, Literal(data['lastName']))
-        person.set(WOS.alphaBrowse, Literal(data['lastName'][0].lower()))
+        #person.set(FOAF.familyName, Literal(data['lastName']))
+        #person.set(WOS.alphaBrowse, Literal(data['lastName'][0].lower()))
 
         # dais
         for did in self.dais_ids:
@@ -89,8 +92,8 @@ class Researcher(object):
         g.add((vci_uri, RDF.type, VCARD.Individual))
 
         # Vcard Name
-        g += self._vcard_name()
-        g.add((vci_uri, VCARD.hasName, URIRef(self.vcard_name_uri)))
+        #g += self._vcard_name()
+        #g.add((vci_uri, VCARD.hasName, URIRef(self.vcard_name_uri)))
 
         # Vcard email
         vte = self._vcard_email()
@@ -151,14 +154,31 @@ def index_contributors(pub):
     return au_idx
 
 
+def get_existing_people():
+    logger.info("Getting existing profiles.")
+    q = rq_prefixes + """
+    select ?p
+    where
+    {
+        ?p a foaf:Person
+    }
+    """
+    vstore = backend.get_store()
+    out = []
+    for row in vstore.query(q):
+        out.append(row.p)
+    return out
+
+
 def build_orcid_rid_profiles():
     """
     Builds profiles for researchers with RIDs or ORCIDs.
     """
     q = rq_prefixes + """
     select 
-        (COUNT(?dais) as ?num)
+        (COUNT(?aship) as ?num)
         ?dais 
+        (group_concat(distinct ?fullName ; separator = "|") AS ?full_names)
         (SAMPLE(?fullName) AS ?name) 
         (SAMPLE(?first) AS ?firstName) 
         (SAMPLE(?last) AS ?lastName) 
@@ -170,13 +190,11 @@ def build_orcid_rid_profiles():
             wos:firstName ?first ;
             wos:lastName ?last ;
             vivo:relates ?addr .
-        FILTER NOT EXISTS {
-            ?aship vivo:relates ?person .
-            ?person a foaf:Person .
-        }
     }
     GROUP BY ?dais
+    #HAVING (?num >= 3)
     """
+    logger.info("Author ID profiles query:\n" + q)
     vstore = backend.get_store()
     with open(ORCID_FILE) as inf:
         d_to_o = json.load(inf)
@@ -184,6 +202,7 @@ def build_orcid_rid_profiles():
         d_to_r = json.load(inf)
     with open(AU_ID_FILE) as inf:
         auid_to_dais = json.load(inf)
+    existing = get_existing_people()
     done = []
     g = Graph()
     for person in vstore.query(q):
@@ -215,6 +234,9 @@ def build_orcid_rid_profiles():
         logger.info("Building profile for {} with {}.".format(name, orcid or rid))
         done += dais_ids
         vper = Researcher(person, dais_ids)
+        if vper.uri in existing:
+            logger.info("Profile exists with URI {}.".format(vper.uri))
+            continue
         if orcid is not None:
             g.add((vper.uri, WOS.orcid, Literal(orcid)))
         elif rid is not None:
@@ -232,6 +254,7 @@ def build_email_profiles():
             (COUNT(?aship) as ?num)
             ?email
             (SAMPLE(?fullName) AS ?name) 
+            (group_concat(distinct ?fullName ; separator = "|") AS ?full_names)
             (SAMPLE(?first) AS ?firstName) 
             (SAMPLE(?last) AS ?lastName) 
             (group_concat(distinct ?daisNg ; separator = "|") AS ?dais) 
@@ -245,7 +268,7 @@ def build_email_profiles():
                 wos:lastName ?last .
             FILTER NOT EXISTS {
                 ?p a foaf:Person ;
-                vivo:relatedBy ?aship .
+                    wos:daisNg ?daisNg .
             }
         }
         GROUP BY ?email
@@ -254,6 +277,7 @@ def build_email_profiles():
     """
     logger.info("Email profiles query:\n" + q)
     vstore = backend.get_store()
+    existing = get_existing_people()
     g = Graph()
     for person in vstore.query(q):
         name = person.name.toPython()
@@ -261,18 +285,28 @@ def build_email_profiles():
         dais_ids = [d for d in person.dais.toPython().split("|")]
         logger.info("Building profile for {} with {}.".format(name, email))
         vper = Researcher(person, dais_ids)
+        if vper.uri in existing:
+            logger.info("Profile exists for {}.".format(vper.uri))
+            continue
         g += vper.to_rdf()
     vstore.bulk_add(PEOPLE_EMAIL_GRAPH, g)
 
 
-def build_dtu_dais_profiles():
+def build_dais_profiles():
     """
-    Builds profiles for DTU researchers by DAIS and a minimum number of publications.
+    Builds profiles for researchers by DAIS and a minimum number of publications.
     """
+    with open(ORCID_FILE) as inf:
+        d_to_o = json.load(inf)
+    with open(RID_FILE) as inf:
+        d_to_r = json.load(inf)
+    with open(AU_ID_FILE) as inf:
+        auid_to_dais = json.load(inf)
     q = rq_prefixes + """
         select 
             (COUNT(?aship) as ?num)
             ?dais
+            (group_concat(distinct ?fullName ; separator = "|") AS ?full_names)
             (SAMPLE(?fullName) AS ?name) 
             (SAMPLE(?first) AS ?firstName) 
             (SAMPLE(?last) AS ?lastName) 
@@ -284,28 +318,44 @@ def build_dtu_dais_profiles():
                 wos:daisNg ?dais ;
                 wos:firstName ?first ;
                 wos:lastName ?last .
-            ?addr a wos:Address ;
-                vivo:relates d:org-technical-university-of-denmark .
-            FILTER NOT EXISTS {
-                ?p a foaf:Person ;
-                vivo:relatedBy ?aship .
-            }
         }
         GROUP BY ?dais
-        HAVING (?num >= 3)
+        HAVING (?num >= 20)
         ORDER BY DESC(?num)
     """
-    logger.info("DTU DAIS profiles query:\n" + q)
+    logger.info("DAIS profiles query:\n" + q)
     vstore = backend.get_store()
     g = Graph()
     for person in vstore.query(q):
         name = person.name.toPython()
         dais = person.dais.toPython()
+        # Add RID, ORCID and additional DAIS if possible.
+        orcids = d_to_o.get(dais, [None])
+        rids = d_to_r.get(dais, [None])
+        if len(orcids) > 1:
+            orcid = None
+        else:
+            orcid = orcids[0]
+        if len(rids) > 1:
+            rid = None
+        else:
+            rid = rids[0]
+        person_uri = D['person-' + dais]
+        dais_ids = [dais]
+        if orcid is not None:
+            dais_ids += auid_to_dais.get(orcid, [])
+        elif rid is not None:
+            dais_ids += auid_to_dais.get(rid, [])
         dais_ids = [dais]
         logger.info("Building profile for {} with {}.".format(name, dais))
         vper = Researcher(person, dais_ids)
         g += vper.to_rdf()
-    vstore.bulk_add(PEOPLE_DTU_DAIS_GRAPH, g)
+        if orcid is not None:
+            g.add((vper.uri, WOS.orcid, Literal(orcid)))
+        if rid is not None:
+            g.add((vper.uri, WOS.orcid, Literal(orcid)))
+
+    vstore.sync_named_graph(PEOPLE_GRAPH, g)
 
 
 def build_unified_affiliation():
@@ -314,26 +364,32 @@ def build_unified_affiliation():
     """
     logger.info("Adding unified affiliation.")
     vstore = backend.get_store()
-    q = rq_prefixes + """
-    CONSTRUCT {
-        ?person a wos:ExternalResearcher .
-        ?person wos:hasAffiliation ?unifOrg .
-    }
-    WHERE {
-        ?unifOrg a wos:UnifiedOrganization ;
-               vivo:relatedBy ?address .
-        ?address a wos:Address ;
-               vivo:relatedBy ?authorship ;
-               vivo:relates ?unifOrg .
-        ?authorship a vivo:Authorship ;
-                vivo:relates ?person .
-        ?person a foaf:Person .
-        FILTER (?unifOrg != d:org-technical-university-of-denmark)
-    }
-    """
-    logger.info("Affiliation query:\n" + q)
-    g = vstore.query(q).graph
-    vstore.sync_named_graph(AFFILIATION_NG, g)
+    while True:
+        q = rq_prefixes + """
+        CONSTRUCT {
+            ?person a wos:ExternalResearcher .
+            ?person wos:hasAffiliation ?unifOrg .
+        }
+        WHERE {
+            ?unifOrg a wos:UnifiedOrganization ;
+                   vivo:relatedBy ?address .
+            ?address a wos:Address ;
+                   vivo:relatedBy ?authorship ;
+                   vivo:relates ?unifOrg .
+            ?authorship a vivo:Authorship ;
+                    vivo:relates ?person .
+            ?person a foaf:Person .
+            FILTER (?unifOrg !=  d:org-technical-university-of-denmark)
+            FILTER NOT EXISTS { ?person a wos:ExternalResearcher }
+        }
+        LIMIT 500
+        """
+        logger.info("Affiliation query:\n" + q)
+        try:
+            g = vstore.query(q).graph
+            vstore.bulk_add(AFFILIATION_NG, g)
+        except ResultException:
+            break
 
 
 def build_dtu_people():
@@ -351,7 +407,7 @@ def build_dtu_people():
                vivo:relatedBy ?address .
         ?address a wos:Address ;
                vivo:relatedBy ?authorship ;
-               vivo:relates ?unifOrg .
+               vivo:relates d:org-technical-university-of-denmark .
         ?authorship a vivo:Authorship ;
                 vivo:relates ?person .
         ?person a foaf:Person .
@@ -360,13 +416,13 @@ def build_dtu_people():
     logger.info("DTU people query:\n" + q)
 
     g = vstore.query(q).graph
-    vstore.sync_named_graph(AFFILIATION_NG, g)
+    vstore.bulk_add(AFFILIATION_NG, g)
 
 
 def remove_internal_external():
     """
     Remove the wos:ExternalResearcher class from those that
-    are also DTU reseaarchers.
+    are also DTU researchers.
     """
     logger.info("Removing external researcher from internal researchers.")
     vstore = backend.get_store()
@@ -428,16 +484,22 @@ def index():
         if contrib_idx is None:
             continue
         for au in pub.authors():
-            last = au['last']
-            cm = contrib_idx.get(last)
-            if cm is None:
+            dais = au['dais_ng']
+            if dais is None:
                 continue
-            elif len(cm) == 1:
-                dais = au['dais_ng']
-                if dais is None:
+            last = au['last']
+            contributor_matches = contrib_idx.get(last)
+            if contributor_matches is None:
+                continue
+            elif len(contributor_matches) == 1:
+                # Full name match on WOS full name and contributor full name.
+                au_name_key = au["full_name"]
+                cm_name_key = "{}, {}".format(contributor_matches[0]['last'], contributor_matches[0]['first'])
+                orcid = contributor_matches[0]['orcid']
+                rid = contributor_matches[0]['r_id']
+                if au_name_key.lower() != cm_name_key.lower():
+                    logger.debug("{} - Name keys don't match - {} {}".format(orcid or rid, au_name_key, cm_name_key))
                     continue
-                orcid = cm[0]['orcid']
-                rid = cm[0]['r_id']
                 if (orcid != "") and (orcid is not None) and (orcid not in dais_orcid[dais]):
                     dais_orcid[dais].append(orcid)
                     au_identifier_to_dais[orcid].append(dais)
@@ -446,9 +508,11 @@ def index():
                     au_identifier_to_dais[rid].append(dais)
                 else:
                     continue
-            elif len(cm) > 0:
+            elif len(contributor_matches) > 1:
                 logger.info("Multiple last name match for UT {} and name {}.".format(pub.ut, au['display_name']))
                 raise Exception("Multiple matches")
+            else:
+                raise Exception("Unexpected contributor match count")
 
     with open(ORCID_FILE, 'wb') as out_file:
         json.dump(dais_orcid, out_file)
@@ -462,8 +526,8 @@ def index():
 
 if __name__ == "__main__":
     index()
+    build_dais_profiles()
     build_orcid_rid_profiles()
-    build_dtu_dais_profiles()
     build_email_profiles()
     add_authorship_links()
     build_unified_affiliation()
