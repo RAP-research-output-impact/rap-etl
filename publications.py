@@ -51,9 +51,9 @@ def egf(elem, path):
             return txt.strip()
 
 
-def slug_uri(text, prefix="e-"):
+def slug_uri(text, prefix="e"):
     ln = slugify(unicode(text))
-    return D[ln]
+    return D[prefix + "-" + ln]
 
 
 def waan_uri(text):
@@ -117,6 +117,26 @@ def add_author_keyword_data_property(value, pub_uri):
     """
     g = Graph()
     g.add((pub_uri, WOS.authorKeyword, Literal(value)))
+    return g
+
+
+def add_grant(grant, pub_uri):
+    """
+    Create a funder and grant(s).
+    """
+    g = Graph()
+    slug = slugify(grant["agency"])
+    uri = D['funder-' + slug]
+    g.add((uri, RDF.type, WOS.Funder))
+    g.add((uri, RDFS.label, Literal(grant["agency"])))
+    for gid in grant["ids"]:
+        label = "{} - {}".format(grant["agency"], gid)
+        guri = D['grant-'] + slugify(label)
+        g.add((guri, RDF.type, WOS.Grant))
+        g.add((guri, RDFS.label, Literal(label)))
+        g.add((guri, WOS.grantId, Literal(gid)))
+        g.add((guri, VIVO.relates, uri))
+        g.add((guri, VIVO.relates, pub_uri))
     return g
 
 
@@ -498,9 +518,8 @@ class RDFRecord(WosRecord):
     def categories_g(self):
         g = Graph()
         for cat in self.categories():
-            cat_uri, cg = add_category(cat)
-            cg.add((self.uri, WOS.hasCategory, cat_uri))
-            g += cg
+            cat_uri = get_category_uri(cat)
+            g.add((self.uri, WOS.hasCategory, cat_uri))
         return g
 
     @staticmethod
