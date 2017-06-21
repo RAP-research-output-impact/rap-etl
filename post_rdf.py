@@ -15,6 +15,7 @@ NG_BASE = "http://localhost/data/"
 
 
 def process(triple_files, format="nt", dry=False, sync=False, sleep=10):
+    vstore = backend.get_store()
     for fpath in triple_files:
         g = Graph()
         g.parse(source=fpath, format=format)
@@ -28,7 +29,8 @@ def process(triple_files, format="nt", dry=False, sync=False, sleep=10):
                 added, removed = backend.sync_updates(named_graph, g)
             else:
                 logger.info("Posting graph as updates to {}.".format(named_graph))
-                added, removed = backend.post_updates(named_graph, g)
+                added = vstore.bulk_add(named_graph, g)
+                removed = 0
             if (added > 0) or (removed > 0):
                 if sleep > 0:
                     logger.info("Sleeping for {} seconds between files.".format(sleep))
