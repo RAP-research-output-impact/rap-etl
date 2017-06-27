@@ -125,6 +125,9 @@ def add_grant(grant, pub_uri):
     Create a funder and grant(s).
     """
     g = Graph()
+    if grant.get("agency") is None:
+        logger.info("No agency found for {} with ids.".format(pub_uri, ";".join(grant.get("ids", []))))
+        return g
     slug = slugify(grant["agency"])
     uri = D['funder-' + slug]
     g.add((uri, RDF.type, WOS.Funder))

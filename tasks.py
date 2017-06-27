@@ -274,6 +274,7 @@ class DoPubProcess(luigi.Task):
         yield DoAuthorship(sample=self.sample)
         yield DoAddress(sample=self.sample)
         yield DoSubOrgs(sample=self.sample)
+        yield Grants(sample=self.sample)
         yield DoUnifiedOrgs(sample=self.sample)
         yield DoCategories(sample=self.sample)
         yield KeywordsPlus(sample=self.sample)
@@ -283,4 +284,4 @@ class DoPubProcess(luigi.Task):
 
 if __name__ == '__main__':
     #"--local-scheduler",
-    luigi.run(["--sample=1000", "--workers=3"], main_task_cls=DoPubProcess)
+    luigi.run(["--sample=-1", "--workers=3"], main_task_cls=DoPubProcess)

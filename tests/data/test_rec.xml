@@ -1,0 +1,75 @@
+<REC r_id_disclaimer="ResearcherID data provided by Thomson Reuters" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <UID>WOS:000123</UID>
+    <static_data>
+        <summary>
+            <EWUID>
+                <WUID coll_id="WOS"/>
+                <edition value="WOS.SCI"/>
+            </EWUID>
+            <pub_info coverdate="2007" has_abstract="Y" pubtype="Journal" pubyear="2007" sortdate="2007-01-01" vol="2">
+            </pub_info>
+            <titles count="6">
+            </titles>
+            <names count="3">
+            </names>
+            <doctypes count="1">
+                <doctype>Article</doctype>
+            </doctypes>
+            <publishers>
+                <publisher>
+                </publisher>
+            </publishers>
+        </summary>
+        <fullrecord_metadata>
+            <normalized_doctypes count="1">
+                <doctype>Article</doctype>
+            </normalized_doctypes>
+            <addresses count="2">
+            </addresses>
+            <category_info>
+            </category_info>
+            <fund_ack>
+                <fund_text>
+                    <p>Funded by the Research Coundil</p>
+                </fund_text>
+                <grants count="4">
+                    <grant>
+                        <grant_agency>Strategic Program for Young Researchers</grant_agency>
+                        <grant_ids count="1">
+                            <grant_id>55</grant_id>
+                        </grant_ids>
+                    </grant>
+                    <grant>
+                        <grant_agency>Strategic Research Foundation</grant_agency>
+                        <grant_ids count="2">
+                            <grant_id>33</grant_id>
+                            <grant_id>44</grant_id>
+                        </grant_ids>
+                    </grant>
+                    <grant>
+                        <grant_agency>Science foundation</grant_agency>
+                    </grant>
+                    <grant>
+                        <grant_agency>Another funder</grant_agency>
+                    </grant>
+                </grants>
+            </fund_ack>
+            <keywords count="3">
+            </keywords>
+            <abstracts count="1">
+            </abstracts>
+        </fullrecord_metadata>
+        <item coll_id="WOS" xsi:type="itemType_wos">
+        </item>
+        <contributors count="3">
+        </contributors>
+    </static_data>
+    <dynamic_data>
+        <citation_related>
+        </citation_related>
+        <cluster_related>
+            <identifiers>
+            </identifiers>
+        </cluster_related>
+    </dynamic_data>
+</REC>
