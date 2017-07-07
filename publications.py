@@ -370,16 +370,25 @@ class RDFRecord(WosRecord):
     def aship_uri(self, no):
         return D["au" + no + "-" + self.ln]
 
-    def addr_uri(self, no):
-        if no is None:
-            return []
+    def addr_uri(self, raw):
+        if raw is None:
+            raise Exception("No full address to create URI")
+        ln = backend.hash_local_name("addr", raw)
+        return D[ln]
+
+    def addr_uris_from_number(self, number):
         out = []
-        for n in no.split():
-            out.append(D['addr' + n + "-" + self.ln])
+        for addr in self.addresses():
+            num = addr['number']
+            if num == number:
+                faddr = addr["full_address"]
+                out.append(self.addr_uri(faddr))
         return out
 
-    def sub_org_uri(self, address_number, position):
-        return D["org" + address_number + str(position) + "-" + self.ln]
+    @staticmethod
+    def sub_org_uri(label):
+        ln = backend.hash_local_name("suborg", label)
+        return D[ln]
 
     def rec_type(self):
         """
@@ -464,7 +473,7 @@ class RDFRecord(WosRecord):
             # relations
             r.add(VIVO.relates, self.uri)
             # relate to addresses too
-            address_uris = self.addr_uri(au["address"])
+            address_uris = self.addr_uris_from_number(au["address"])
             for auri in address_uris:
                 r.add(VIVO.relates, auri)
         return g
@@ -477,7 +486,7 @@ class RDFRecord(WosRecord):
             org = addr["organization"]
             for idx, suborg in enumerate(addr['sub_organizations']):
                 label = "{}, {}".format(suborg, org)
-                uri = self.sub_org_uri(ano, idx)
+                uri = self.sub_org_uri(label)
                 r = Resource(g, uri)
                 r.set(RDF.type, WOS.SubOrganization)
                 r.set(RDFS.label, Literal(label))
@@ -501,16 +510,20 @@ class RDFRecord(WosRecord):
         g = Graph()
         addresses = self.addresses()
         for addr in addresses:
-            addr_uri = self.addr_uri(addr['number'])[0]
+            addr_uri = self.addr_uri(addr['full_address'])
+            org = addr["organization"]
             r = Resource(g, addr_uri)
             r.set(RDF.type, WOS.Address)
             r.set(RDFS.label, Literal(addr['full_address']))
-            r.set(WOS.organizationName, Literal(addr['organization']))
+            r.set(WOS.organizationName, Literal(org))
             r.set(WOS.sequenceNumber, Literal(addr['number']))
             # relation to author set by authorship
+            # relate to pub
+            r.set(VIVO.relates, self.uri)
             # sub orgs
             for idx, suborg in enumerate(addr["sub_organizations"]):
-                so_uri = self.sub_org_uri(addr["number"], idx)
+                label = "{}, {}".format(suborg, org)
+                so_uri = self.sub_org_uri(label)
                 r.add(VIVO.relates, so_uri)
             # relate unified orgs
             for uorg in addr["unified_orgs"]:
