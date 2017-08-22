@@ -370,10 +370,10 @@ class RDFRecord(WosRecord):
     def aship_uri(self, no):
         return D["au" + no + "-" + self.ln]
 
-    def addr_uri(self, raw):
+    def addr_uri(self, raw, num):
         if raw is None:
             raise Exception("No full address to create URI")
-        ln = backend.hash_local_name("addr", raw)
+        ln = backend.hash_local_name("addr", raw) + num
         return D[ln]
 
     def addr_uris_from_number(self, number):
@@ -382,7 +382,7 @@ class RDFRecord(WosRecord):
             num = addr['number']
             if num == number:
                 faddr = addr["full_address"]
-                out.append(self.addr_uri(faddr))
+                out.append(self.addr_uri(faddr, num))
         return out
 
     @staticmethod
@@ -473,9 +473,15 @@ class RDFRecord(WosRecord):
             # relations
             r.add(VIVO.relates, self.uri)
             # relate to addresses too
-            address_uris = self.addr_uris_from_number(au["address"])
-            for auri in address_uris:
-                r.add(VIVO.relates, auri)
+            # address nums are a space separated list of numbers
+            addr_nums = au["address"]
+            if addr_nums is None:
+                continue
+            else:
+                for anum in addr_nums.split():
+                    addr_uris = self.addr_uris_from_number(anum)
+                    for auri in addr_uris:
+                        r.add(VIVO.relates, auri)
         return g
 
     def sub_orgs(self):
@@ -510,7 +516,7 @@ class RDFRecord(WosRecord):
         g = Graph()
         addresses = self.addresses()
         for addr in addresses:
-            addr_uri = self.addr_uri(addr['full_address'])
+            addr_uri = self.addr_uri(addr["full_address"], addr["number"])
             org = addr["organization"]
             r = Resource(g, addr_uri)
             r.set(RDF.type, WOS.Address)
