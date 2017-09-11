@@ -19,6 +19,9 @@ PEOPLE_EMAIL_GRAPH = "http://localhost/data/people-email"
 PEOPLE_DTU_DAIS_GRAPH = "http://localhost/data/people-dtu-dais"
 AFFILIATION_NG = "http://localhost/data/people-affiliation"
 PEOPLE_AUTHORSHIP = "http://localhost/data/people-authorship"
+ADDRESS_GRAPH = "http://localhost/data/address"
+SUBORG_GRAPH = "http://localhost/data/suborgs"
+CLEAN_SUBORG_GRAPH = "'http://localhost/data/clean-suborgs'"
 
 CATEGORY_NG = "http://localhost/data/wos-venue-categories"
 
