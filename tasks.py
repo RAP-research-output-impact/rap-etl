@@ -10,6 +10,8 @@ from rdflib import Graph, Literal, URIRef
 from namespaces import D, WOS, RDFS, RDF, SKOS
 from settings import logger, CACHE_PATH
 
+from lib import backend
+
 from publications import (
     RDFRecord,
     sample_data_files,
@@ -19,6 +21,8 @@ from publications import (
     slug_uri,
     add_grant
 )
+
+from wos_categories import map_categories
 
 
 def get_out_path(name):
@@ -38,7 +42,15 @@ def yield_files(sample):
 
 
 class Base(luigi.Task):
+    NG_BASE = "http://localhost/data/"
+
     def serialize(self, graph):
+        # post - VIVO doesn't handle concurrent writes well
+        # named_graph = self.NG_BASE + self.output().path.split("/")[-1].split(".")[0]
+        # logger.info("Syncing graph to {}.".format(named_graph))
+        # added, removed = backend.sync_updates(named_graph, graph)
+
+        # write to file
         with self.output().open('w') as out_file:
             raw = graph.serialize(format='nt')
             out_file.write(raw)
@@ -281,7 +293,6 @@ class DoPubProcess(luigi.Task):
         yield AuthorKeywords(sample=self.sample)
         yield MapCategoryTree()
 
-
 if __name__ == '__main__':
     #"--local-scheduler",
-    luigi.run(["--sample=-1", "--workers=3"], main_task_cls=DoPubProcess)
+    luigi.run(["--sample=800", "--workers=3"], main_task_cls=DoPubProcess)

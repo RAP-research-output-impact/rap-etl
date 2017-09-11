@@ -20,6 +20,13 @@ PEOPLE_DTU_DAIS_GRAPH = "http://localhost/data/people-dtu-dais"
 AFFILIATION_NG = "http://localhost/data/people-affiliation"
 PEOPLE_AUTHORSHIP = "http://localhost/data/people-authorship"
 
+CATEGORY_NG = "http://localhost/data/wos-venue-categories"
+
+# Format
+#Seq #,Title,20 Char,Publisher,Prods,ISSN,E-ISSN,Country,Language,SCIE,SSCI,AHCI,WoS Category
+#D2783J,2D Materials,2D MATER,IOP PUBLISHING LTD,D  JS Q  XC S  CC ES,2053-1583,2053-1583,ENGLAND,English,1,0,0,"Materials Science, Multidisciplinary"
+CATEGORY_FILE = "data/source_files/wos-categories.csv"
+
 
 ORCID_FILE = 'data/dais_to_orcid.json'
 RID_FILE = 'data/dais_to_rid.json'
