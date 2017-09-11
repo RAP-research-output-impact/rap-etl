@@ -1,0 +1,569 @@
+@prefix wos: <http://webofscience.com/ontology/wos#> .
+@prefix vitro: <http://vitro.mannlib.cornell.edu/ns/vitro/0.7#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:      <http://www.w3.org/2001/XMLSchema#> .
+@prefix vivo:  <http://vivoweb.org/ontology/core#> .
+@prefix vpublic: <http://vitro.mannlib.cornell.edu/ns/vitro/public#> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix bibo: <http://purl.org/ontology/bibo/> .
+@prefix obo: <http://purl.obolibrary.org/obo/> .
+@prefix vrole: <http://vitro.mannlib.cornell.edu/ns/vitro/role#> .
+@prefix rapd: <http://webofscience.com/ontology/rap/display/#> .
+@prefix vdisplay:  <http://vivoweb.org/ontology#> .
+
+#http://vitro.mannlib.cornell.edu/default/asserted-tbox
+
+<http://webofscience.com/ontology/wos#>
+        a                          owl:Ontology ;
+        rdfs:label                 "Web of Science"@en-US ;
+        vitro:ontologyPrefixAnnot  "wos"^^xsd:string .
+
+wos:photo a owl:DatatypeProperty ;
+        rdfs:label "image" ;
+        rdfs:range xsd:string .
+
+wos:birth a owl:DatatypeProperty ;
+    rdfs:label "birth"@en-US ;
+    rdfs:range xsd:dateTime .
+
+wos:orcid a owl:DatatypeProperty ;
+    rdfs:subPropertyOf vivo:identifier ;
+    rdfs:label "orcid"@en-US ;
+    rdfs:range xsd:string .
+
+wos:fundingText a owl:DatatypeProperty ;
+    rdfs:label "funding text"@en-US ;
+    rdfs:range xsd:string .
+
+wos:citeKey a owl:DatatypeProperty ;
+    rdfs:label "cite key"@en-US ;
+    rdfs:range xsd:string .
+
+wos:authorList a owl:DatatypeProperty ;
+    rdfs:label "cited authors"@en-US ;
+    rdfs:range xsd:string .
+
+wos:isni a owl:DatatypeProperty ;
+    rdfs:label "isni"@en-US ;
+    rdfs:range xsd:string .
+
+wos:description a owl:DatatypeProperty ;
+    rdfs:label "description"@en-US ;
+    rdfs:range xsd:string .
+
+wos:wosId a owl:DatatypeProperty ;
+    rdfs:label "WoS ID"@en-US ;
+    rdfs:subPropertyOf vivo:identifier ;
+    rdfs:range xsd:string .
+
+wos:authorKeyword a owl:DatatypeProperty ;
+    rdfs:label "author keyword"@en-US ;
+    rdfs:range xsd:string .
+
+wos:keywordPlus a owl:DatatypeProperty ;
+    rdfs:label "keyword plus"@en-US ;
+    rdfs:range xsd:string .
+
+wos:wikidataId a owl:DatatypeProperty ;
+    rdfs:label "Wikidata ID"@en-US ;
+    rdfs:subPropertyOf vivo:identifier ;
+    rdfs:range xsd:string .
+
+wos:fullName a owl:DatatypeProperty ;
+    rdfs:label "WoS full name"@en-US ;
+    rdfs:range xsd:string .
+
+wos:displayName a owl:DatatypeProperty ;
+    rdfs:label "WoS display name"@en-US ;
+    rdfs:range xsd:string .
+
+wos:standardName a owl:DatatypeProperty ;
+    rdfs:label "WoS standard name"@en-US ;
+    rdfs:range xsd:string .
+
+wos:firstName a owl:DatatypeProperty ;
+    rdfs:label "WoS first name"@en-US ;
+    rdfs:range xsd:string .
+
+wos:lastName a owl:DatatypeProperty ;
+    rdfs:label "WoS last name"@en-US ;
+    rdfs:range xsd:string .
+
+wos:email a owl:DatatypeProperty ;
+    rdfs:label "WoS email"@en-US ;
+    rdfs:range xsd:string .
+
+wos:daisNg a owl:DatatypeProperty ;
+    rdfs:label "WoS dais ng"@en-US ;
+    rdfs:subPropertyOf vivo:identifier ;
+    rdfs:range xsd:string .
+
+wos:journalAbbr a owl:DatatypeProperty ;
+    rdfs:label "journal abbreviation"@en-US ;
+    rdfs:range xsd:string .
+
+wos:referenceCount a owl:DatatypeProperty ;
+    rdfs:label "WoS References"@en-US ;
+    rdfs:range xsd:integer .
+
+wos:citationCount a owl:DatatypeProperty ;
+    rdfs:label "WoS Citations"@en-US ;
+    rdfs:range xsd:integer .
+
+wos:Address a owl:Class ;
+    rdfs:label "WoS Address"@en-US;
+    rdfs:subClassOf owl:Thing .
+
+wos:sequenceNumber a owl:DatatypeProperty ;
+    rdfs:label "WoS sequence number"@en-US ;
+    rdfs:range xsd:string .
+
+wos:Organization a owl:Class ;
+    rdfs:label "WoS Organization"@en-US ;
+    rdfs:subClassOf foaf:Organization .
+
+wos:organizationName a owl:DatatypeProperty ;
+    rdfs:label "WoS organization name"@en-US ;
+    rdfs:range xsd:string .
+
+wos:subOrganizationName a owl:DatatypeProperty ;
+    rdfs:label "WoS sub organization name"@en-US ;
+    rdfs:range xsd:string .
+
+wos:subOrganizationNameVariant a owl:DatatypeProperty ;
+    rdfs:label "WoS sub organization name variant"@en-US ;
+    rdfs:range xsd:string .
+
+wos:UnifiedOrganization a owl:Class ;
+    rdfs:label "WoS Unified Organization"@en-US;
+    rdfs:subClassOf foaf:Organization .
+
+wos:waanId a owl:DatatypeProperty ;
+    rdfs:label "WoS WAAN id"@en-US ;
+    rdfs:subPropertyOf vivo:identifier ;
+    rdfs:range xsd:string .
+
+wos:countryCode a owl:DatatypeProperty ;
+    rdfs:label "Country code"@en-US ;
+    rdfs:subPropertyOf vivo:identifier ;
+    rdfs:range xsd:string .
+
+# generated from unified orgs
+wos:SubOrganization a owl:Class ;
+    rdfs:label "WoS Sub Organization"@en-US;
+    rdfs:subClassOf foaf:Organization .
+
+wos:Researcher a owl:Class ;
+    rdfs:label  "Researcher"@en-US ;
+    rdfs:subClassOf foaf:Person .
+
+wos:DTUResearcher a owl:Class ;
+    rdfs:label  "DTU Researcher"@en-US ;
+    rdfs:subClassOf foaf:Person .
+
+wos:ExternalResearcher a owl:Class ;
+    rdfs:label  "External Researcher"@en-US ;
+    rdfs:subClassOf foaf:Person .
+
+wos:KeywordPlus a owl:Class ;
+    rdfs:label "KeywordPlus"@en-US;
+    rdfs:subClassOf skos:Concept .
+
+wos:AuthorKeyword a owl:Class ;
+    rdfs:label "Author Keyword"@en-US;
+    rdfs:subClassOf skos:Concept .
+
+wos:Category a owl:Class ;
+    rdfs:label "Web of Science Category"@en-US;
+    rdfs:subClassOf skos:Concept .
+
+wos:ResearchArea a owl:Class ;
+    rdfs:label "Web of Science Research Area"@en-US;
+    rdfs:subClassOf skos:Concept .
+
+wos:BroadDiscipline a owl:Class ;
+    rdfs:label "Web of Science Broad Discipline"@en-US;
+    rdfs:subClassOf skos:Concept .
+
+wos:hasAuthorKeyword a owl:ObjectProperty ;
+        rdfs:label "author keyword"@en-US ;
+        rdfs:subPropertyOf vivo:hasResearchArea ;
+        owl:inverseOf wos:authorKeywordFor .
+
+wos:authorKeywordFor a owl:ObjectProperty ;
+        rdfs:label "author keyword"@en-US ;
+        owl:inverseOf wos:hasAuthorKeyword .
+
+wos:hasKeywordPlus a owl:ObjectProperty ;
+        rdfs:label "keyword plus"@en-US ;
+        rdfs:subPropertyOf vivo:hasResearchArea ;
+        owl:inverseOf wos:keywordPlusFor .
+
+wos:keywordPlusFor a owl:ObjectProperty ;
+        rdfs:label "papers"@en-US ;
+        owl:inverseOf wos:authorKeyword .
+
+wos:hasCategory a owl:ObjectProperty ;
+        rdfs:label "category"@en-US ;
+        rdfs:subPropertyOf vivo:hasResearchArea ;
+        rdfs:domain wos:Category ;
+        rdfs:range  obo:IAO_0000030 ;
+        owl:inverseOf wos:categoryFor .
+
+wos:categoryFor a owl:ObjectProperty ;
+        rdfs:label "category"@en-US ;
+        rdfs:domain  obo:IAO_0000030 ;
+        rdfs:range wos:Category ;
+        owl:inverseOf wos:hasCategory .
+
+
+# pub types
+##http://images.webofknowledge.com/WOKRS59B4/help/WOS/hs_document_type.html
+
+wos:Publication a owl:Class ;
+    rdfs:label "WoS Publication"@en-US;
+    rdfs:subClassOf bibo:Document .
+
+wos:Article a owl:Class ;
+    rdfs:label "Article"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:Abstract a owl:Class ;
+    rdfs:label "Abstract of Published Item"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:ArtExhibitReview a owl:Class ;
+    rdfs:label "Art Exhibit Review"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:BiographicalItem a owl:Class ;
+    rdfs:label "Biographical Item"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:Book a owl:Class ;
+    rdfs:label "Book"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:BookChapter a owl:Class ;
+    rdfs:label "Book Chapter"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:BookReview a owl:Class ;
+    rdfs:label "Book Review"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:Conference a owl:Class ;
+    rdfs:label "Conference"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:Chronology a owl:Class ;
+    rdfs:label "Chronology"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:Correction a owl:Class ;
+    rdfs:label "Correction"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:CorrectionAddition a owl:Class ;
+    rdfs:label "Correction Addition"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:DancePerformanceReview a owl:Class ;
+    rdfs:label "Dance Performance Review"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:Discussion a owl:Class ;
+    rdfs:label "Discussion"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:EditorialMaterial a owl:Class ;
+    rdfs:label "Editorial Material" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:Excerpt a owl:Class ;
+    rdfs:label "Excerpt"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:FictionCreativeProse a owl:Class ;
+    rdfs:label "Fiction Creative Prose"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:FilmReview a owl:Class ;
+    rdfs:label "Film Review"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:HardwareReview a owl:Class ;
+    rdfs:label "Hardware Review"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:ItemAboutAnIndividual a owl:Class ;
+    rdfs:label "Item About An Individual"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:Letter a owl:Class ;
+    rdfs:label "Letter"@en-US;
+    rdfs:subClassOf wos:Publication .
+
+wos:MeetingAbstract a owl:Class ;
+    rdfs:label "Meeting Abstract" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:MeetingSummary a owl:Class ;
+    rdfs:label "Meeting Summary" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:MusicPerformanceReview a owl:Class ;
+    rdfs:label "Music Performance Review" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:MusicScore a owl:Class ;
+    rdfs:label "Music Score" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:MusicScoreReview a owl:Class ;
+    rdfs:label "Music Score Review" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:NewsItem a owl:Class ;
+    rdfs:label "News Item" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:Note a owl:Class ;
+    rdfs:label "Note" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:Poetry a owl:Class ;
+    rdfs:label "Poetry" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:ProceedingsPaper a owl:Class ;
+    rdfs:label "Proceedings Paper" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:RecordReview a owl:Class ;
+    rdfs:label "Record Review" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:Reprint a owl:Class ;
+    rdfs:label "Reprint" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:Review a owl:Class ;
+    rdfs:label "Review" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:Script a owl:Class ;
+    rdfs:label "Script" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:SoftwareReview a owl:Class ;
+    rdfs:label "Software Review" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:TVRadioReview a owl:Class ;
+    rdfs:label "TV Review, Radio Review" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:TVRadioVideoReview a owl:Class ;
+    rdfs:label "TV Review, Radio Review, Video Review" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:TheaterReview a owl:Class ;
+    rdfs:label "Theater Review" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:MeetingAbstract a owl:Class ;
+    rdfs:label "Meeting Abstract" ;
+    rdfs:subClassOf wos:Publication .
+
+wos:hasAffiliation a owl:ObjectProperty ;
+        rdfs:label "has affilation"@en-US ;
+        owl:inverseOf wos:affiliationFor .
+
+wos:affiliationFor a owl:ObjectProperty ;
+        rdfs:label "members"@en-US ;
+        owl:inverseOf wos:hasAffiliation .
+
+# Grants
+wos:Grant a owl:Class ;
+    rdfs:label "Grant" ;
+    rdfs:subClassOf vivo:Grant .
+
+wos:grantId a owl:DatatypeProperty ;
+    rdfs:label "Grant Id"@en-US ;
+    rdfs:range xsd:string .
+
+wos:Funder a owl:Class ;
+    rdfs:label "Funder"@en-US;
+    rdfs:subClassOf foaf:Organization .
+
+# InCites metrics
+
+wos:esiMostCited a owl:DatatypeProperty ;
+        rdfs:label "ESI most cited" ;
+        rdfs:range xsd:boolean .
+
+wos:hotPaper a owl:DatatypeProperty ;
+        rdfs:label "hot paper" ;
+        rdfs:range xsd:boolean .
+
+wos:industryCollaboration a owl:DatatypeProperty ;
+        rdfs:label "industry collaboration" ;
+        rdfs:range xsd:boolean .
+
+wos:internationalCollaboration a owl:DatatypeProperty ;
+        rdfs:label "international collaboration" ;
+        rdfs:range xsd:boolean .
+
+wos:openAccess a owl:DatatypeProperty ;
+        rdfs:label "open access" ;
+        rdfs:range xsd:boolean .
+
+wos:totalCites a owl:DatatypeProperty ;
+        rdfs:label "total cites" ;
+        rdfs:range xsd:integer .
+
+wos:journalExpectedCitations a owl:DatatypeProperty ;
+        rdfs:label "journal expected citations" ;
+        rdfs:range xsd:decimal .
+
+wos:journalActExpCitations a owl:DatatypeProperty ;
+        rdfs:label "impact factor" ;
+        rdfs:range xsd:decimal .
+
+wos:impactFactor a owl:DatatypeProperty ;
+        rdfs:label "impact factor" ;
+        rdfs:range xsd:decimal .
+
+wos:avgExpectedRate a owl:DatatypeProperty ;
+        rdfs:label "average expected rate" ;
+        rdfs:range xsd:decimal .
+
+wos:percentile a owl:DatatypeProperty ;
+        rdfs:label "percentile" ;
+        rdfs:range xsd:decimal .
+
+wos:nci a owl:DatatypeProperty ;
+        rdfs:label "normalized citation impact" ;
+        rdfs:range xsd:decimal .
+
+# InCites aggregate counts from internal API
+wos:InCitesCount a owl:Class ;
+    rdfs:label "InCites Doc Count" ;
+    rdfs:subClassOf owl:Thing .
+
+wos:InCitesPubPerYear a owl:Class ;
+    rdfs:label "InCites Pubs Per Year" ;
+    rdfs:subClassOf wos:InCitesCount .
+
+wos:InCitesCitesPerYear a owl:Class ;
+    rdfs:label "InCites Cites Per Year" ;
+    rdfs:subClassOf wos:InCitesCount .
+
+wos:InCitesTopCategory a owl:Class ;
+    rdfs:label "InCites Top Category" ;
+    rdfs:subClassOf wos:InCitesCount .
+
+wos:number a owl:DatatypeProperty ;
+    rdfs:label "number" ;
+    rdfs:range xsd:integer .
+
+wos:year a owl:DatatypeProperty ;
+    rdfs:label "year" ;
+    rdfs:range xsd:integer .
+
+# class specific template pages
+wos:UnifiedOrganization
+      vitro:customDisplayViewAnnot
+              "individual--wos-unified-organization.ftl"^^xsd:string .
+
+wos:Publication
+      vitro:customDisplayViewAnnot
+              "individual--wos-publication.ftl"^^xsd:string .
+
+# Assign to property and class groups.
+wos:authorList vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupoverview .
+wos:hasAffiliation vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupoverview .
+wos:hasKeywordPlus vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupoverview .
+wos:fundingText vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupoverview .
+
+wos:affiliationFor vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupaffiliation .
+
+wos:categoryFor vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupresearch .
+wos:keywordPlusFor vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupresearch .
+wos:hasCategory vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupresearch .
+wos:hasAuthorKeyword vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupresearch .
+wos:hasKeywordPlus vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupresearch .
+wos:keywordPlusFor vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupresearch .
+wos:authorKeywordFor vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupresearch .
+wos:authorKeyword vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupresearch .
+wos:keywordPlus vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupresearch .
+
+wos:citeKey vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupidentifiers .
+wos:orcid vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupidentifiers .
+wos:isni vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupidentifiers .
+wos:photo vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupidentifiers .
+wos:wosId vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupidentifiers .
+wos:daisNg vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupidentifiers .
+wos:countryCode vitro:inPropertyGroupAnnot vdisplay:vitroPropertyGroupidentifiers .
+
+wos:esiMostCited vitro:inPropertyGroupAnnot rapd:metrics .
+wos:hotPaper vitro:inPropertyGroupAnnot rapd:metrics .
+wos:industryCollaboration vitro:inPropertyGroupAnnot rapd:metrics .
+wos:internationalCollaboration vitro:inPropertyGroupAnnot rapd:metrics .
+wos:openAccess vitro:inPropertyGroupAnnot rapd:metrics .
+wos:citationCount vitro:inPropertyGroupAnnot rapd:metrics .
+wos:referenceCount vitro:inPropertyGroupAnnot rapd:metrics.
+
+
+# class groups for pubs
+wos:Abstract vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:ArtExhibitReview vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Article vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:BiographicalItem vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Book vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:BookChapter vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:BookReview vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Chronology vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Conference vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Correction vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:CorrectionAddition vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:DancePerformanceReview vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Discussion vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:EditorialMaterial vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Excerpt vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:FictionCreativeProse vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:FilmReview vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:HardwareReview vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:ItemAboutAnIndividual vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Letter vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:MeetingAbstract vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:MeetingSummary vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:MusicPerformanceReview vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:MusicScore vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:MusicScoreReview vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:NewsItem vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Note vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Poetry vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:ProceedingsPaper vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:RecordReview vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Reprint vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Review vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:Script vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:SoftwareReview vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:TVRadioReview vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:TVRadioVideoReview vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+wos:TheaterReview vitro:inClassGroup vdisplay:vitroClassGrouppublications .
+
+
+wos:Organization vitro:inClassGroup vdisplay:vitroClassGrouporganizations .
+wos:UnifiedOrganization vitro:inClassGroup vdisplay:vitroClassGrouporganizations .
+
+wos:Researcher vitro:inClassGroup vdisplay:vitroClassGrouppeople .
+
+wos:Category vitro:inClassGroup rapd:GroupTopics .
+wos:AuthorKeyword vitro:inClassGroup rapd:GroupTopics .
+wos:KeywordPlus vitro:inClassGroup rapd:GroupTopics .
