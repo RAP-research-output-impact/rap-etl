@@ -1,6 +1,10 @@
 """
 Ingest Tasks
+
+Map WOS XML to RDF for RAP.
+
 """
+
 import argparse
 import csv
 import os
@@ -44,8 +48,6 @@ def yield_files(sample):
 
 
 class Base(luigi.Task):
-    NG_BASE = "http://localhost/data/"
-
     def serialize(self, graph):
         # post - VIVO doesn't handle concurrent writes well
         # named_graph = self.NG_BASE + self.output().path.split("/")[-1].split(".")[0]
