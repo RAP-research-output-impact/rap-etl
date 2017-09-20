@@ -1,8 +1,10 @@
 """
 Ingest Tasks
 """
+import argparse
 import csv
 import os
+import sys
 
 import luigi
 from rdflib import Graph, Literal, URIRef
@@ -295,4 +297,13 @@ class DoPubProcess(luigi.Task):
 
 if __name__ == '__main__':
     #"--local-scheduler",
-    luigi.run(["--sample=800", "--workers=3"], main_task_cls=DoPubProcess)
+    parser = argparse.ArgumentParser(description='Map WOS documents to RDF')
+    parser.add_argument('--sample', '-s', default=500, type=int, help="Sample size")
+    parser.add_argument('--local', '-l', default=False, action="store_true", help="Use local scheduler")
+    parser.add_argument('--workers', '-w', default=3, help="luigi workers")
+    args = parser.parse_args(sys.argv[1:])
+
+    params = ["--sample={}".format(args.sample), "--workers={}".format(args.workers)]
+    if args.local is True:
+        params.append("--local-scheduler")
+    luigi.run(params, main_task_cls=DoPubProcess)
