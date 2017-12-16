@@ -167,7 +167,7 @@ class Client(object):
         if rsp.status_code != 200:
             logger.error(rsp.text)
             raise Exception("Query error")
-        rsp_doc = ET.fromstring(rsp.text)
+        rsp_doc = ET.fromstring(rsp.text.encode('utf-8', 'ignore'))
         found = rsp_doc.find('.//recordsFound').text
         qid = rsp_doc.find('.//queryId').text
         records = rsp_doc.find('.//records').text
@@ -186,7 +186,7 @@ class Client(object):
                 # No problem here just a deduplication issue.
                 return ""
             logger.warning(emsg)
-        rsp_doc = ET.fromstring(rsp.text)
+        rsp_doc = ET.fromstring(rsp.text.encode('utf-8', 'ignore'))
         try:
             records = rsp_doc.find('.//records').text
         except AttributeError:
