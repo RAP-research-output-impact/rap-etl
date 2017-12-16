@@ -119,7 +119,7 @@ if __name__ == "__main__":
     for rec in records:
         ut = rec.find('./UID').text
         path = get_path(ut, base_path=outd)
-    with open(path, 'w') as outfile:
-        outfile.write(ET.tostring(rec))
+        with open(path, 'w') as outfile:
+            outfile.write(ET.tostring(rec))
 
 
