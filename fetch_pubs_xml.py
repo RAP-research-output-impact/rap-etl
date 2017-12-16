@@ -15,13 +15,6 @@ import xml.etree.ElementTree as ET
 
 import json
 
-from namespaces import (
-	TMP,
-	D,
-	WOS,
-	BIBO
-)
-
 from lib import wose
 
 from log_setup import get_logger
@@ -93,8 +86,8 @@ def get_path(ut, base_path="/tmp/wose2/"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Fetch Web of Science Documents')
     parser.add_argument('--session', '-s', default=None, help="WOS session id")
-    parser.add_argument('--start', default=None, required=True, help="Date start")
-    parser.add_argument('--end', default=None, required=True, help="Date end")
+    parser.add_argument('--start', default=None, required=True, help="Date start. E.g 2012-01-01")
+    parser.add_argument('--end', default=None, required=True, help="Date end. E.g 2012-02-01")
     parser.add_argument('--query', '-q', required=True)
     parser.add_argument('--out', '-o', default="wos")
     args = parser.parse_args(sys.argv[1:])
