@@ -138,7 +138,7 @@ class Session(object):
             raise Exception("WoS returned 500 error:\n" + rsp.text)
         try:
             self.set_sid(ET.fromstring(rsp.text).find('.//return').text)
-        except Exception, e:
+        except Exception:
             raise Exception("Unable to parse SID:\n" + rsp.text)
         return self.sid
 
@@ -197,10 +197,7 @@ class Client(object):
 
 
 def get_recs(raw):
-    try:
-        return ET.fromstring(raw).findall('.//REC')
-    except Exception:
-        return []
+    return ET.fromstring(raw.encode('utf-8', 'ignore')).findall('.//REC')
 
 
 def query(q, sid, count=100, get_all=False):
