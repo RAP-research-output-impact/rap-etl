@@ -52,7 +52,7 @@ class SyncVStore(VIVOUpdateStore):
         """
         return self.ng_construct(named_graph, rq)
 
-    def sync_named_graph(self, name, incoming):
+    def sync_named_graph(self, name, incoming, size=BATCH_SIZE):
         """
         Pass in incoming data and sync with existing data in
         named graph.
@@ -60,9 +60,9 @@ class SyncVStore(VIVOUpdateStore):
         existing = self.get_existing(name)
         both, adds, deletes = graph_diff(incoming, existing)
         del both
-        added = self.bulk_add(name, adds, size=BATCH_SIZE)
+        added = self.bulk_add(name, adds, size=size)
         logger.info("Adding {} triples to {}.".format(added, name))
-        removed = self.bulk_remove(name, deletes, size=BATCH_SIZE)
+        removed = self.bulk_remove(name, deletes, size=size)
         logger.info("Removed {} triples from {}.".format(removed, name))
         return added, removed
 
@@ -106,13 +106,13 @@ def post_updates(named_graph, graph, delay=20):
     return num_additions, num_remove
 
 
-def sync_updates(named_graph, graph):
+def sync_updates(named_graph, graph, size=BATCH_SIZE):
     """
     Function for posting the data.
     """
     logger.info("Syncing {}.".format(named_graph))
     vstore = get_store()
-    add, remove = vstore.sync_named_graph(named_graph, graph)
+    add, remove = vstore.sync_named_graph(named_graph, graph, size=size)
     return add, remove
 
 

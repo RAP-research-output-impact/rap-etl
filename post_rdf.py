@@ -13,6 +13,8 @@ from settings import logger
 
 NG_BASE = "http://localhost/data/"
 
+BATCH_SIZE = 5000
+
 
 def process(triple_files, format="nt", dry=False, sync=False, sleep=10):
     vstore = backend.get_store()
@@ -26,10 +28,10 @@ def process(triple_files, format="nt", dry=False, sync=False, sleep=10):
         else:
             if sync is True:
                 logger.info("Syncing graph to {}.".format(named_graph))
-                added, removed = backend.sync_updates(named_graph, g)
+                added, removed = backend.sync_updates(named_graph, g, size=BATCH_SIZE)
             else:
                 logger.info("Posting graph as updates to {}.".format(named_graph))
-                added = vstore.bulk_add(named_graph, g)
+                added = vstore.bulk_add(named_graph, g, size=BATCH_SIZE)
                 removed = 0
             if (added > 0) or (removed > 0):
                 if sleep > 0:
