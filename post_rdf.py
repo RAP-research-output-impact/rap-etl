@@ -13,25 +13,27 @@ from settings import logger
 
 NG_BASE = "http://localhost/data/"
 
-BATCH_SIZE = 5000
+# Number of triples to post to VIVO SPARQL Update endpoint at one time.
+# Larger batches tend to fail with 403 error.
+DEFAULT_BATCH_SIZE = 5000
 
 
-def process(triple_files, format="nt", dry=False, sync=False, sleep=10):
+def process(triple_files, format="nt", dry=False, sync=False, sleep=10, size=DEFAULT_BATCH_SIZE):
     vstore = backend.get_store()
     for fpath in triple_files:
         g = Graph()
         g.parse(source=fpath, format=format)
         named_graph = NG_BASE + fpath.split("/")[-1].split(".")[0]
-        logger.info("Processing updates with {} triples to {}.".format(len(g), named_graph))
+        logger.info("Processing updates with {} triples to {} and batch size {}.".format(len(g), named_graph, size))
         if dry is True:
             logger.info("Dry run. No changes made.")
         else:
             if sync is True:
                 logger.info("Syncing graph to {}.".format(named_graph))
-                added, removed = backend.sync_updates(named_graph, g, size=BATCH_SIZE)
+                added, removed = backend.sync_updates(named_graph, g, size=size)
             else:
                 logger.info("Posting graph as updates to {}.".format(named_graph))
-                added = vstore.bulk_add(named_graph, g, size=BATCH_SIZE)
+                added = vstore.bulk_add(named_graph, g, size=size)
                 removed = 0
             if (added > 0) or (removed > 0):
                 if sleep > 0:
@@ -55,6 +57,7 @@ if __name__ == "__main__":
     parser.add_argument('--path', '-p', action="store", nargs='*')
     parser.add_argument('--format', '-f', action="store", default="nt")
     parser.add_argument('--sleep', '-sp', action="store", default=0, type=int)
+    parser.add_argument('--batch', '-b', action="store", default=DEFAULT_BATCH_SIZE, type=int)
     args = parser.parse_args()
     verify(args.path)
-    done = process(args.path, format=args.format, dry=args.dry, sync=args.sync, sleep=args.sleep)
+    done = process(args.path, format=args.format, dry=args.dry, sync=args.sync, sleep=args.sleep, size=args.batch)
