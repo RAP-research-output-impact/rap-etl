@@ -22,8 +22,8 @@ PEOPLE_AUTHORSHIP = "http://localhost/data/people-authorship"
 ADDRESS_GRAPH = "http://localhost/data/address"
 SUBORG_GRAPH = "http://localhost/data/suborgs"
 CLEAN_SUBORG_GRAPH = "'http://localhost/data/clean-suborgs'"
-
 CATEGORY_NG = "http://localhost/data/wos-venue-categories"
+COUNTRY_CODE_NG = "http://localhost/data/organization-extra"
 
 # Format
 #Seq #,Title,20 Char,Publisher,Prods,ISSN,E-ISSN,Country,Language,SCIE,SSCI,AHCI,WoS Category
@@ -34,6 +34,8 @@ CATEGORY_FILE = "data/source_files/wos-categories.csv"
 ORCID_FILE = 'data/dais_to_orcid.json'
 RID_FILE = 'data/dais_to_rid.json'
 AU_ID_FILE = 'data/au_id_to_dais.json'
+
+COUNTRY_CODE_KEY_FILE = 'data/org_country_code_key.json'
 
 
 SEED = 71

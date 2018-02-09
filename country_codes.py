@@ -3,16 +3,16 @@ Map org enhanced to 3 digit country codes using address info from
 Web of Science org enhanced file. Also map additional desired attributes.
 """
 
-
+import argparse
 import sys
 import csv
 import json
 
 from slugify import slugify
 
-from map_pubs import waan_uri
+from publications import waan_uri
 
-import backend
+from lib import backend
 
 from namespaces import WOS, rq_prefixes, VIVO, OBO
 from rdflib import Graph, Literal, URIRef
@@ -21,7 +21,7 @@ from log_setup import get_logger
 
 logger = get_logger()
 
-NAMED_GRAPH = "http://localhost/data/organization-extra"
+from settings import COUNTRY_CODE_NG, COUNTRY_CODE_KEY_FILE
 
 
 REPL = {
@@ -49,60 +49,6 @@ store = backend.get_store()
 def mk_slug(raw):
     clean = raw.strip().lower()
     return slugify(clean)
-
-
-def process_country_codes(fpath):
-    d = {}
-    with open(fpath) as raw:
-        for row in csv.DictReader(raw):
-            name = row['ISO4217-currency_country_name']
-            if name == "":
-                continue
-            code = row['ISO3166-1-Alpha-3']
-            slug = country_slug(name)
-            d[slug] = code
-    return d
-
-
-def process_org_enhanced(fpath, country_codes):
-    g = Graph()
-    with open(fpath) as raw:
-        for row in csv.reader(raw, delimiter="\t"):
-            matched = None
-            waan_id = row[0]
-            name = row[1]
-            country = row[6].split(',')[-1]
-            clean_country = country.strip().upper()
-            url = row[9]
-            #print name, country
-            try:
-                uri = waan_uri(name)
-            except UnicodeDecodeError:
-                print>>sys.stderr, row
-            cslug = country_slug(country)
-            matched = REPL.get(clean_country)
-            if matched is None:
-                matched = country_codes.get(cslug)
-
-            if matched is None:
-                print>>sys.stderr, clean_country, cslug, "***** no match"
-                continue
-            if matched == 'CZC':
-                import ipdb; ipdb.set_trace()
-                print>>sys.stderr, "False match", clean_country, matched
-
-            g.add((uri, WOS.countryCode, Literal(matched)))
-            g.add((uri, WOS.waanId, Literal(waan_id)))
-            if url != "":
-                g.add((uri, WOS.url, Literal(url)))
-    backend.post_updates(NAMED_GRAPH, g)
-
-
-def load():
-    argv = sys.argv[1]
-    country_codes = process_country_codes(argv)
-    org_enhanced_meta = sys.argv[2]
-    process_org_enhanced(org_enhanced_meta, country_codes)
 
 
 def fetch_vivo_countries():
@@ -166,34 +112,48 @@ def index_org_metadata(fpath, to_match):
                 name=row[1],
                 country=clean_country,
             )
-    with open('data/org_enhanced/org_key.json', 'wb') as outf:
-        json.dump(d, outf)
-    return True
+    return d
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Process org enhanced')
+    parser.add_argument('--index', '-i', default=None, help="Index the orgs from raw WOS metadata list. Pass metadata file.")
+    parser.add_argument('--load', '-l', action="store_true", help="Load updated country codes into VIVO.")
+    args = parser.parse_args()
+
+    if (args.index is None) and (args.load is not True):
+        print>>sys.stderr, "No action specified"
+        sys.exit()
+
+    COUNTRY_CODE_KEY_FILE = "data/org_key.json"
+
+    logger.info("Fetching VIVO countries")
     vcountries = fetch_vivo_countries()
-    vstates = fetch_vivo_states()
 
-    org_enhanced_meta = sys.argv[1]
-    index_org_metadata(org_enhanced_meta, vcountries)
-    with open('data/org_enhanced/org_key.json') as inf:
-        org_enhanced = json.load(inf)
+    if args.index is True:
+        org_enhanced_meta = sys.argv[1]
+        orgs = index_org_metadata(org_enhanced_meta, vcountries)
+        with open(COUNTRY_CODE_KEY_FILE, 'wb') as outf:
+            json.dump(orgs, outf)
 
-    orgs = get_orgs()
+    if args.load is True:
+        with open(COUNTRY_CODE_KEY_FILE) as inf:
+            org_enhanced = json.load(inf)
 
-    g = Graph()
-    for org in orgs:
-        ometa = org_enhanced.get(org)
-        if ometa is None:
-            logger.info("No org metadata found for {}.".format(org))
-            continue
-        country = ometa['country']
-        name = REPL.get(country) or mk_slug(country)
-        try:
-            curi = vcountries[name]
-            g.add((URIRef(org), OBO['RO_0001025'], URIRef(curi)))
-        except:
-            logger.info("Can't match {}.".format(name))
+        orgs = get_orgs()
 
-    backend.post_updates(NAMED_GRAPH, g)
+        g = Graph()
+        for org in orgs:
+            ometa = org_enhanced.get(org)
+            if ometa is None:
+                logger.info("No org metadata found for {}.".format(org))
+                continue
+            country = ometa['country']
+            name = REPL.get(country) or mk_slug(country)
+            try:
+                curi = vcountries[name]
+                g.add((URIRef(org), OBO['RO_0001025'], URIRef(curi)))
+            except:
+                logger.info("Can't match {}.".format(name))
+
+        backend.post_updates(COUNTRY_CODE_NG, g)
