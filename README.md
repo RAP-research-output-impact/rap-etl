@@ -29,3 +29,10 @@ Adjust values for VIVO and WOS API and:
 * InCites API
 * Web of Science categories
 * Web of Science organization enhanced names
+
+
+### Tests
+Initial unittests are in`tests`. Run as:
+```
+python -m unittest discover tests
+```

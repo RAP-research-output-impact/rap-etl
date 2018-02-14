@@ -10,7 +10,7 @@ set -e
 export PYTHONWARNINGS="ignore"
 
 # sample size. Set to -1 to process all
-sample=-1
+sample=200
 
 pid=data/tmp/luigi.pid
 

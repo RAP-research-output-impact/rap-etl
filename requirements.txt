@@ -2,3 +2,4 @@ vivo-sparqlupdate-store
 rdflib
 slugify
 luigi
+requests

@@ -35,6 +35,9 @@ INCITES_TOTAL_CITES_YEAR = "http://localhost/data/incites-total-cites-year-count
 #D2783J,2D Materials,2D MATER,IOP PUBLISHING LTD,D  JS Q  XC S  CC ES,2053-1583,2053-1583,ENGLAND,English,1,0,0,"Materials Science, Multidisciplinary"
 CATEGORY_FILE = "data/source_files/wos-categories.csv"
 
+# Label used when no suborganization found in address
+DEPARTMENT_UNKNOWN_LABEL = "Department Unknown"
+
 
 ORCID_FILE = 'data/dais_to_orcid.json'
 RID_FILE = 'data/dais_to_rid.json'

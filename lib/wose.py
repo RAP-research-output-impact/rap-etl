@@ -249,6 +249,7 @@ def raw_query(q, sid, count=100, get_all=False):
                 out_recs += tr
     return qid, num, out_recs
 
+
 def get_dp(rec, path):
     try:
         return rec.find(path).text

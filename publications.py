@@ -25,7 +25,8 @@ from settings import (
     NS,
     RECORD_PATH,
     PUB_GRAPH,
-    logger
+    logger,
+    DEPARTMENT_UNKNOWN_LABEL
 )
 from namespaces import (
     D,
@@ -289,6 +290,8 @@ class WosRecord(object):
                 org_name = orgs[0]
             except IndexError:
                 org_name = "n/a"
+            if sub_orgs == []:
+                sub_orgs = [DEPARTMENT_UNKNOWN_LABEL]
             out.append(
                 dict(
                     number=no,

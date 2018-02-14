@@ -25,6 +25,15 @@
                 <doctype>Article</doctype>
             </normalized_doctypes>
             <addresses count="2">
+                <address_name>
+                    <address_spec addr_no="1">
+                        <full_address>Syracuse Univ, Syracuse, NY 13244 USA</full_address>
+                        <organizations count="2">
+                            <organization>Syracuse Univ</organization>
+                            <organization pref="Y">Syracuse University</organization>
+                        </organizations>
+                    </address_spec>
+                </address_name>
             </addresses>
             <category_info>
             </category_info>

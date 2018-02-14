@@ -19,9 +19,8 @@ from publications import waan_uri
 
 import settings
 
-from log_setup import get_logger
 
-logger = get_logger()
+logger = settings.get_logger()
 
 
 def hash_uri(prefix, value):
