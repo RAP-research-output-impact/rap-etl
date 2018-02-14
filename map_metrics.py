@@ -1,35 +1,28 @@
 """
 Map data from the internal InCites API to VIVO.
 """
-import glob
-import sys
 import json
 
 from slugify import slugify
-
 from rdflib import Graph, Literal, RDF, RDFS, URIRef
-from rdflib.resource import Resource
-
 from namespaces import rq_prefixes
 
 from namespaces import (
-	D,
-	VIVO,
-	OBO,
-	VCARD,
-	WOS,
-	FOAF
+    D,
+    VIVO,
+    WOS,
 )
 
 from lib import backend
-vstore = backend.get_store()
-
 from wos_categories import get_category_uri
 from publications import waan_uri
+
+import settings
 
 from log_setup import get_logger
 
 logger = get_logger()
+
 
 def hash_uri(prefix, value):
     return D[prefix + '-' + hashlib.md5(value).hexdigest()]
@@ -47,13 +40,15 @@ def get_unified_orgs():
             rdfs:label ?org .
     }
     """
+    vstore = backend.get_store()
     out = []
     for row in vstore.query(q):
         out.append((row.wosU.toPython(), row.org.toPython()))
     return out
 
+
 def load_incites_json_file(name, ictype):
-    fname = slugify(name)
+    fname = "org-" + slugify(name)
     try:
         with open('data/incites/{}/{}.json'.format(ictype, fname)) as inf:
             return json.load(inf)
@@ -61,8 +56,8 @@ def load_incites_json_file(name, ictype):
         logger.warn("Could not find metrics for {}.".format(name))
         return []
 
+
 def org_total_counts(orgs):
-    #pcounts = incites_api.get_total_pubs(name)
     g = Graph()
     for org_name in orgs:
         org_uri = waan_uri(org_name)
@@ -75,7 +70,7 @@ def org_total_counts(orgs):
             g.add((curi, WOS.number, Literal(item['count'])))
             g.add((curi, WOS.year, Literal(item['year'])))
             g.add((org_uri, VIVO.relates, curi))
-    ng = "http://localhost/data/incites-pub-year-counts"
+    ng = settings.INCITES_PUB_YEAR_COUNTS
     backend.sync_updates(ng, g)
     return True
 
@@ -84,7 +79,6 @@ def org_total_cites(orgs):
     g = Graph()
     for org_name in orgs:
         org_uri = waan_uri(org_name)
-        #print>>sys.stderr, "Processing", org_name, "total cites"
         ln = local_name(org_uri)
         tc = load_incites_json_file(org_name, 'cites')
         for item in tc:
@@ -95,9 +89,7 @@ def org_total_cites(orgs):
             g.add((curi, WOS.year, Literal(item['year'])))
             g.add((org_uri, VIVO.relates, curi))
 
-
-    #print g.serialize(format="turtle")
-    ng = "http://localhost/data/incites-total-cites-year-counts"
+    ng = settings.INCITES_TOTAL_CITES_YEAR
     backend.sync_updates(ng, g)
     return True
 
@@ -105,7 +97,6 @@ def org_total_cites(orgs):
 def org_top_categories(orgs):
     g = Graph()
     for org_name in orgs:
-        #print>>sys.stderr, "Processing", org_name, "top categories"
         org_uri = waan_uri(org_name)
         ln = local_name(org_uri)
         top_cat = load_incites_json_file(org_name, 'categories')
@@ -118,17 +109,10 @@ def org_top_categories(orgs):
             g.add((curi, WOS.number, Literal(item['count'])))
             g.add((curi, VIVO.relates, category_uri))
             g.add((curi, VIVO.relates, org_uri))
-    #print g.serialize(format="turtle")
-    ng = "http://localhost/data/incites-top-categories"
+    ng = settings.INCITES_TOP_CATEGORIES
     backend.sync_updates(ng, g)
     return True
 
-
-def get_orgs():
-    with open('data/collab_orgs.json') as inf:
-        orgs = json.load(inf)
-        for name, v in orgs.items():
-            yield name
 
 def main():
     """
@@ -141,7 +125,6 @@ def main():
     org_top_categories(to_load)
     org_total_cites(to_load)
     org_total_counts(to_load)
-
 
 
 if __name__ == "__main__":

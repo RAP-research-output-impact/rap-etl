@@ -25,6 +25,11 @@ CLEAN_SUBORG_GRAPH = "'http://localhost/data/clean-suborgs'"
 CATEGORY_NG = "http://localhost/data/wos-venue-categories"
 COUNTRY_CODE_NG = "http://localhost/data/organization-extra"
 
+# Incites
+INCITES_TOP_CATEGORIES = "http://localhost/data/incites-top-categories"
+INCITES_PUB_YEAR_COUNTS = "http://localhost/data/incites-pub-year-counts"
+INCITES_TOTAL_CITES_YEAR = "http://localhost/data/incites-total-cites-year-counts"
+
 # Format
 #Seq #,Title,20 Char,Publisher,Prods,ISSN,E-ISSN,Country,Language,SCIE,SSCI,AHCI,WoS Category
 #D2783J,2D Materials,2D MATER,IOP PUBLISHING LTD,D  JS Q  XC S  CC ES,2053-1583,2053-1583,ENGLAND,English,1,0,0,"Materials Science, Multidisciplinary"
