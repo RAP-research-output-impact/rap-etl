@@ -2,8 +2,9 @@
 
 Extracting RAP information from the Web of Science and mapping it to VIVO RDF.
 
-_This is a work in-progress. More functionality and documentation will be coming in summer of 2017._
+_This is a work in-progress. More functionality and documentation will be coming._
 
+More details about the project are available [here](https://widgets.figshare.com/articles/5266435/embed?show_title=1).
 
 ### Requirements
 
@@ -32,7 +33,7 @@ Adjust values for VIVO and WOS API and:
 
 
 ### Tests
-Initial unittests are in`tests`. Run as:
+Initial unit tests are in`tests`. Run as:
 ```
 python -m unittest discover tests
 ```
