@@ -98,14 +98,18 @@ def org_top_categories(orgs):
     for org_name in orgs:
         org_uri = waan_uri(org_name)
         ln = local_name(org_uri)
-        top_cat = load_incites_json_file(org_name, 'categories')
+        top_cat = load_incites_json_file(org_name, 'categories-by-year')
         for item in top_cat:
             cat = item['category']
+            counts = item['counts'][0]
+            count = counts['count']
+            year = counts['year']
             category_uri = get_category_uri(cat)
-            curi = D['topcategory-'] + ln + slugify(cat)
+            curi = D['topcategory-'] + ln + slugify(cat) + '-{}'.format(year)
             g.add((curi, RDF.type, WOS.InCitesTopCategory))
             g.add((curi, RDFS.label, Literal("{} - {}".format(org_name, cat))))
-            g.add((curi, WOS.number, Literal(item['count'])))
+            g.add((curi, WOS.number, Literal(count)))
+            g.add((curi, WOS.year, Literal(year)))
             g.add((curi, VIVO.relates, category_uri))
             g.add((curi, VIVO.relates, org_uri))
     ng = settings.INCITES_TOP_CATEGORIES
