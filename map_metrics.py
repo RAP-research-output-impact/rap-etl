@@ -62,6 +62,9 @@ def org_total_counts(orgs):
         org_uri = waan_uri(org_name)
         ln = local_name(org_uri)
         pcounts = load_incites_json_file(org_name, 'total')
+        if len(pcounts) == 0:
+            logger.warning("{} file is empty.".format(org_name))
+            continue
         for item in pcounts:
             curi = D['pubcount-' + ln + '-' + str(item['year'])]
             g.add((curi, RDF.type, WOS.InCitesPubPerYear))
@@ -80,6 +83,9 @@ def org_total_cites(orgs):
         org_uri = waan_uri(org_name)
         ln = local_name(org_uri)
         tc = load_incites_json_file(org_name, 'cites')
+        if len(tc) == 0:
+            logger.warning("{} file is empty.".format(org_name))
+            continue
         for item in tc:
             curi = D['citecount-' + ln + '-' + str(item['year'])]
             g.add((curi, RDF.type, WOS.InCitesCitesPerYear))
@@ -99,6 +105,9 @@ def org_top_categories(orgs):
         org_uri = waan_uri(org_name)
         ln = local_name(org_uri)
         top_cat = load_incites_json_file(org_name, 'categories-by-year')
+        if len(top_cat) == 0:
+            logger.warning("{} file is empty.".format(org_name))
+            continue
         for item in top_cat:
             cat = item['category']
             for tc_yr in item['counts']:
