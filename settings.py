@@ -47,3 +47,28 @@ COUNTRY_CODE_KEY_FILE = 'data/org_country_code_key.json'
 
 
 SEED = 71
+
+
+# Map WOS country name to VIVO ISO 3 URIs
+# Most ISO codes match the name exactly, some need special handling. List those here.
+# Missing - Ivory Coast, Reunion, Taiwan
+COUNTRY_REPLACE = {
+    'Bosnia & Herzegovina': 'Bosnia_and_Herzegovina',
+    'Czech Republic': 'Czech_Republic_the',
+    'Costa Rica': 'Costa_Rica',
+    'Gambia': 'Gambia__the',
+    'Iran': 'Iran_Islamic_Rep_of_',
+    'Libya': 'Libyan_Arab_Jamahiriya__the',
+    'Netherlands': 'Netherlands_the',
+    'Peoples R China': 'China',
+    'Philippines': 'Philippines__the',
+    'Republic of Georgia': 'Georgia',
+    'Russia': 'Russian_Federation__the',
+    'South Korea': 'Republic_of_Korea__the',
+    'Sudan': 'Sudan_the',
+    'Tanzania': 'United_Republic_of_Tanzania__the',
+    'United Arab Emirates': 'United_Arab_Emirates__the',
+    'United Kingdom': 'United_Kingdom_of_Great_Britain_and_Northern_Ireland__the',
+    'United States': 'United_States_of_America',
+    'Vietnam': 'Viet_Nam'
+}

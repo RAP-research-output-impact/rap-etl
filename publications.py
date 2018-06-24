@@ -13,7 +13,7 @@ import xml.etree.ElementTree as ET
 
 
 # installed
-from rdflib import Graph, Literal
+from rdflib import Graph, Literal, URIRef
 from rdflib.resource import Resource
 from slugify import slugify
 
@@ -26,7 +26,8 @@ from settings import (
     RECORD_PATH,
     PUB_GRAPH,
     logger,
-    DEPARTMENT_UNKNOWN_LABEL
+    DEPARTMENT_UNKNOWN_LABEL,
+    COUNTRY_REPLACE
 )
 from namespaces import (
     D,
@@ -35,7 +36,8 @@ from namespaces import (
     RDF,
     RDFS,
     VIVO,
-    XSD
+    XSD,
+    OBO
 )
 
 
@@ -292,13 +294,15 @@ class WosRecord(object):
                 org_name = "n/a"
             if sub_orgs == []:
                 sub_orgs = [DEPARTMENT_UNKNOWN_LABEL]
+            country = spec.find('country').text
             out.append(
                 dict(
                     number=no,
                     full_address=full_address,
                     organization=org_name,
                     sub_organizations=sub_orgs,
-                    unified_orgs=unified_orgs
+                    unified_orgs=unified_orgs,
+                    country=country
                 )
             )
         return out
@@ -503,6 +507,13 @@ class RDFRecord(WosRecord):
                 r.set(WOS.subOrganizationName, Literal(suborg))
         return g
 
+    def _country(self, name):
+        short_name = COUNTRY_REPLACE.get(name)
+        if short_name is None:
+            short_name = name.replace(' ', '_')
+        uri = URIRef('http://aims.fao.org/aos/geopolitical.owl#' + short_name)
+        return uri
+
     def unified_orgs(self):
         g = Graph()
         addresses = self.addresses()
@@ -512,6 +523,8 @@ class RDFRecord(WosRecord):
                 r = Resource(g, uri)
                 r.set(RDF.type, WOS.UnifiedOrganization)
                 r.set(RDFS.label, Literal(org))
+                country_uri = self._country(addr["country"])
+                r.set(OBO['RO_0001025'], country_uri)
                 # relation set by address
         return g
 
