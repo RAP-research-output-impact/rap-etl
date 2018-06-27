@@ -164,6 +164,7 @@ class DoCategories(Base):
         for rec in yield_files(self.sample):
             logger.info("Mapping {} to RDF.".format(rec.ut))
             g += rec.categories_g()
+            g += rec.research_areas_g()
 
         self.serialize(g)
 
@@ -226,61 +227,6 @@ class Grants(Base):
         return luigi.LocalTarget(path)
 
 
-class MapCategoryTree(Base):
-    input_file = 'data/wos-categories-ras.csv'
-
-    @staticmethod
-    def do_term(term, broader=None, clz=SKOS.Concept, uri_prefix="wosc"):
-        clean_term = term.strip("\"")
-        g = Graph()
-        uri = slug_uri(clean_term, prefix=uri_prefix)
-        g.add((uri, RDF.type, clz))
-        g.add((uri, RDFS.label, Literal(clean_term)))
-        if broader is not None:
-            if broader != uri:
-                g.add((uri, SKOS.broader, broader))
-        return uri, g
-
-    @staticmethod
-    def chunk_ras(value):
-        grps = value.split('|')
-        size = len(grps)
-        if size == 2:
-            return grps[0], grps[1], None
-        elif size == 3:
-            return grps[0], grps[1], grps[2]
-        else:
-            raise Exception("small row")
-
-    def run(self):
-        g = Graph()
-        wos_top = D['wos-topics']
-        g.add((wos_top, RDF.type, WOS.TopTopic))
-        g.add((wos_top, RDFS.label, Literal("Web of Science Subject Schemas")))
-        with open(self.input_file) as inf:
-            for row in csv.DictReader(inf):
-                ra = row['Research Area (eASCA)']
-                category = row['WoS Category (tASCA)']
-                broad, ra1, ra2 = self.chunk_ras(ra)
-                broad_uri, cg = self.do_term(broad, clz=WOS.BroadDiscipline)
-                g.add((broad_uri, SKOS.broader, wos_top))
-                g += cg
-                ra1_uri, cg = self.do_term(ra1, broader=broad_uri, clz=WOS.ResearchArea, uri_prefix="wosra")
-                g += cg
-                ra2_uri = None
-                if ra2 is not None:
-                    ra2_uri, cg = self.do_term(ra2, broader=ra1_uri, clz=WOS.ResearchArea, uri_prefix="wosra")
-                    g += cg
-                cat_uri, cg = self.do_term(category, broader=ra2_uri or ra1_uri, clz=WOS.Category)
-                g += cg
-
-        self.serialize(g)
-
-    def output(self):
-        path = get_out_path("categories-ras.nt")
-        return luigi.LocalTarget(path)
-
-
 class DoPubProcess(luigi.Task):
     sample = luigi.IntParameter()
 
@@ -295,7 +241,6 @@ class DoPubProcess(luigi.Task):
         yield DoCategories(sample=self.sample)
         yield KeywordsPlus(sample=self.sample)
         yield AuthorKeywords(sample=self.sample)
-        yield MapCategoryTree()
 
 if __name__ == '__main__':
     #"--local-scheduler",
