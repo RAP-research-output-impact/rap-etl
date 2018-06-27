@@ -557,6 +557,8 @@ class RDFRecord(WosRecord):
         g = Graph()
         for cat in self.categories():
             cat_uri = get_category_uri(cat)
+            g.add((cat_uri, RDF.type, WOS.Category))
+            g.add((cat_uri, RDFS.label, Literal(cat)))
             g.add((self.uri, WOS.hasCategory, cat_uri))
         return g
 

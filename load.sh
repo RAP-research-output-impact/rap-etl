@@ -7,10 +7,12 @@ set -e
 # and post data to configured VIVO.
 #
 
+# sample size. Set to -1 to process all
+sample=-1
+
 export PYTHONWARNINGS="ignore"
 
-# sample size. Set to -1 to process all
-sample=200
+python fetch_pubs_xml.py --start $1 --end $2 -q OG="$3" --out data/pubs
 
 pid=data/tmp/luigi.pid
 
@@ -19,6 +21,6 @@ python tasks.py --sample=${sample}
 
 kill `head -n 1 ${pid}`
 
-python post_rdf.py --path $1
+python incites_orgs.py data/rdf/unified-orgs.nt data/incites_orgs.txt
 
 

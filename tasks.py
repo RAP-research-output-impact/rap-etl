@@ -14,7 +14,7 @@ import luigi
 from rdflib import Graph, Literal, URIRef
 
 from namespaces import D, WOS, RDFS, RDF, SKOS
-from settings import logger, CACHE_PATH
+from settings import logger, RDF_PATH
 
 from lib import backend
 
@@ -28,11 +28,9 @@ from publications import (
     add_grant
 )
 
-from wos_categories import map_categories
-
 
 def get_out_path(name):
-    return os.path.join(CACHE_PATH, name)
+    return os.path.join(RDF_PATH, name)
 
 
 def yield_files(sample):
@@ -66,7 +64,7 @@ class DoPubs(Base):
     def run(self):
         g = Graph()
         for rec in yield_files(self.sample):
-            logger.info("Mapping {} to RDF.".format(rec.ut))
+            logger.debug("Mapping {} to RDF.".format(rec.ut))
             g += rec.to()
 
         self.serialize(g)
@@ -164,7 +162,6 @@ class DoCategories(Base):
         for rec in yield_files(self.sample):
             logger.info("Mapping {} to RDF.".format(rec.ut))
             g += rec.categories_g()
-            g += rec.research_areas_g()
 
         self.serialize(g)
 
