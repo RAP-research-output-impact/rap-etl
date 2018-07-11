@@ -2,9 +2,10 @@
 Map data from the internal InCites API to VIVO.
 """
 import json
+import os
 
 from slugify import slugify
-from rdflib import Graph, Literal, RDF, RDFS, URIRef
+from rdflib import Graph, Literal, RDF, RDFS
 from namespaces import rq_prefixes
 
 from namespaces import (
@@ -21,10 +22,6 @@ import settings
 
 
 logger = settings.get_logger()
-
-
-def hash_uri(prefix, value):
-    return D[prefix + '-' + hashlib.md5(value).hexdigest()]
 
 
 def local_name(uri):
@@ -56,6 +53,13 @@ def load_incites_json_file(name, ictype):
         return []
 
 
+def save_rdf(graph, ng):
+    name = local_name(ng)
+    path = os.path.join(settings.RDF_PATH, name + '.nt')
+    graph.serialize(destination=path, format='nt')
+    return path
+
+
 def org_total_counts(orgs):
     g = Graph()
     for org_name in orgs:
@@ -72,9 +76,7 @@ def org_total_counts(orgs):
             g.add((curi, WOS.number, Literal(item['count'])))
             g.add((curi, WOS.year, Literal(item['year'])))
             g.add((org_uri, VIVO.relates, curi))
-    ng = settings.INCITES_PUB_YEAR_COUNTS
-    backend.sync_updates(ng, g)
-    return True
+    return g
 
 
 def org_total_cites(orgs):
@@ -94,9 +96,7 @@ def org_total_cites(orgs):
             g.add((curi, WOS.year, Literal(item['year'])))
             g.add((org_uri, VIVO.relates, curi))
 
-    ng = settings.INCITES_TOTAL_CITES_YEAR
-    backend.sync_updates(ng, g)
-    return True
+    return g
 
 
 def org_top_categories(orgs):
@@ -121,9 +121,7 @@ def org_top_categories(orgs):
                 g.add((curi, WOS.year, Literal(year)))
                 g.add((curi, VIVO.relates, category_uri))
                 g.add((curi, VIVO.relates, org_uri))
-    ng = settings.INCITES_TOP_CATEGORIES
-    backend.sync_updates(ng, g)
-    return True
+    return g
 
 
 def main():
@@ -134,9 +132,14 @@ def main():
     for ouri, name in get_unified_orgs():
         to_load.append(name)
 
-    org_top_categories(to_load)
-    org_total_cites(to_load)
-    org_total_counts(to_load)
+    top_cats = org_top_categories(to_load)
+    save_rdf(top_cats, settings.INCITES_TOP_CATEGORIES)
+
+    cites_by_year = org_total_cites(to_load)
+    save_rdf(cites_by_year, settings.TOTAL_CITES_YEAR)
+
+    counts = org_total_counts(to_load)
+    save_rdf(counts, settings.PUB_YEAR_COUNTS)
 
 
 if __name__ == "__main__":

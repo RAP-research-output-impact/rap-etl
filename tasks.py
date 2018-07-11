@@ -6,26 +6,19 @@ Map WOS XML to RDF for RAP.
 """
 
 import argparse
-import csv
 import glob
 import os
 import sys
 
 import luigi
-from rdflib import Graph, Literal, URIRef
+from rdflib import Graph
 
-from namespaces import D, WOS, RDFS, RDF, SKOS
 from settings import logger, PUBS_PATH, RDF_PATH, DATA_RELEASE
-
-from lib import backend
 
 from publications import (
     RDFRecord,
-    sample_data_files,
-    get_data_files,
     add_author_keyword_data_property,
     add_keyword_plus_data_property,
-    slug_uri,
     add_grant
 )
 
@@ -232,7 +225,6 @@ class DoPubProcess(luigi.Task):
 
 
 if __name__ == '__main__':
-    #"--local-scheduler",
     parser = argparse.ArgumentParser(description='Map WOS documents to RDF')
     parser.add_argument('--release', '-r', default=500, type=int, help="Release number")
     parser.add_argument('--local', '-l', default=False, action="store_true", help="Use local scheduler")

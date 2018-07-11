@@ -1,4 +1,4 @@
-from log_setup import get_logger
+from lib.log_setup import get_logger
 
 logger = get_logger()
 
