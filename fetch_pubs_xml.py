@@ -17,9 +17,7 @@ import json
 
 from lib import wose
 
-from log_setup import get_logger
-
-logger = get_logger()
+from settings import logger, ORG_NAME, DATA_RELEASE, PUBS_PATH
 
 
 def ln(uri):
@@ -83,18 +81,25 @@ def get_path(ut, base_path="/tmp/wose2/"):
     fn = os.path.join(path, ut + ".xml")
     return fn
 
+
+def output_path(base, release):
+    return os.path.join(base, "v{}".format(str(release)))
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Fetch Web of Science Documents')
+    parser.add_argument('release', type=int, help="Release number. Needs to be specified in settings.DATA_RELEASE")
     parser.add_argument('--session', '-s', default=None, help="WOS session id")
-    parser.add_argument('--start', default=None, required=True, help="Date start. E.g 2012-01-01")
-    parser.add_argument('--end', default=None, required=True, help="Date end. E.g 2012-02-01")
-    parser.add_argument('--query', '-q', required=True)
     parser.add_argument('--out', '-o', default="wos")
-    args = parser.parse_args(sys.argv[1:])
+    args = parser.parse_args()
     start_stop = []
-    logger.info("Query: {}".format(args.query))
-    #query = "OG=(Technical University of Denmark)"
-    q = prep_qstring(args.query, count=100, start=args.start, end=args.end)
+    query = "OG=({})".format(ORG_NAME)
+    logger.info("Query: {}".format(query))
+    try:
+        rel = DATA_RELEASE[args.release]
+    except KeyError:
+        raise Exception("Release {} not found. Make sure release is specified in settings.DATA_RELEASE".format(args.release))
+    q = prep_qstring(query, count=100, start=rel['start'], end=rel['end'])
     logger.info("Fetching publications from WoS")
     logger.info("WOS query: {}".format(q))
     user = os.environ['WOS_USER']
@@ -105,10 +110,12 @@ if __name__ == "__main__":
         wos = wose.Session(user=user, password=password)
         sid = wos.authenticate()
         logger.info("Session ID: {}.".format(sid))
+
     qid, num, records = wose.raw_query(q, sid, get_all=True)
     logger.info("{} records found.".format(len(records)))
     # Make output dir
-    outd = make_out_dir(args.out)
+    op = output_path(PUBS_PATH, args.release)
+    outd = make_out_dir(op)
     for rec in records:
         ut = rec.find('./UID').text
         path = get_path(ut, base_path=outd)

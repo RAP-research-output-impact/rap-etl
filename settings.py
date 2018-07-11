@@ -2,13 +2,28 @@ from log_setup import get_logger
 
 logger = get_logger()
 
-# WOS namespace
-NS = {
-    'rec': 'http://scientific.thomsonreuters.com/schema/wok5.4/public/FullRecord'
+# WOS organization enhanced name for the home organization
+ORG_NAME = "Technical University of Denmark"
+
+DATA_RELEASE = {
+    3: {
+        'start': '2018-01-01',
+        'end': '2018-03-30'
+    },
+    2: {
+        'start': '2018-01-14',
+        'end': '2018-02-14'
+    },
+    1: {
+        'start': '2018-01-01',
+        'end': '2018-01-31'
+    }
 }
+
 
 RECORD_PATH = 'data/pubs/*/*.xml'
 RDF_PATH = 'data/rdf/'
+PUBS_PATH = 'data/pubs/'
 
 PUB_GRAPH = "http://localhost/data/pubs"
 CATEGORY_GRAPH = "http://localhost/data/wos-categories"
@@ -64,4 +79,10 @@ COUNTRY_REPLACE = {
     'United Kingdom': 'United_Kingdom_of_Great_Britain_and_Northern_Ireland__the',
     'United States': 'United_States_of_America',
     'Vietnam': 'Viet_Nam'
+}
+
+
+# WOS namespace
+NS = {
+    'rec': 'http://scientific.thomsonreuters.com/schema/wok5.4/public/FullRecord'
 }
