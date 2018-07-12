@@ -6,6 +6,7 @@ $ python fetch_pubs_xml.py --help
 
 
 import argparse
+from distutils.dir_util import mkpath
 import sys
 import os
 from string import Template
@@ -27,7 +28,7 @@ def ln(uri):
 def make_out_dir(path):
     rp = os.path.realpath(path)
     if os.path.exists(rp) is not True:
-        os.mkdir(rp)
+        mkpath(rp)
     return rp
 
 
