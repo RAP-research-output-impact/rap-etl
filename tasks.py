@@ -232,7 +232,7 @@ class DoPubProcess(luigi.Task):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Map WOS documents to RDF')
     parser.add_argument('--release', '-r', type=int, help="Release number")
-    parser.add_argument('--local', '-l', default=False, action="store_true", help="Use local scheduler")
+    parser.add_argument('--scheduler', '-s', default=False, action="store_true", help="Use local scheduler")
     parser.add_argument('--workers', '-w', default=3, help="luigi workers")
     args = parser.parse_args(sys.argv[1:])
 
@@ -242,6 +242,6 @@ if __name__ == '__main__':
         raise Exception("Release {} not found. Make sure release is specified in settings.DATA_RELEASE".format(args.release))
 
     params = ["--release={}".format(args.release), "--workers={}".format(args.workers)]
-    if args.local is True:
+    if args.scheduler is not True:
         params.append("--local-scheduler")
     luigi.run(params, main_task_cls=DoPubProcess)

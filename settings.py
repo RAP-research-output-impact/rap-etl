@@ -11,7 +11,7 @@ DATA_RELEASE = {
         'end': '2018-03-30'
     },
     2: {
-        'start': '2018-01-14',
+        'start': '2018-01-01',
         'end': '2018-02-14'
     },
     1: {
@@ -25,6 +25,8 @@ RECORD_PATH = 'data/pubs/*/*.xml'
 RDF_PATH = 'data/rdf/'
 PUBS_PATH = 'data/pubs/'
 STAGING_PATH = 'data/staging'
+
+NG_BASE = "http://localhost/data/"
 
 PUB_GRAPH = "http://localhost/data/pubs"
 CATEGORY_GRAPH = "http://localhost/data/wos-categories"

@@ -7,10 +7,8 @@ to the staging directory.
 import argparse
 import glob
 import os
-import time
 
 from rdflib import Graph
-from rdflib.util import guess_format
 from rdflib.compare import graph_diff
 
 from lib import utils
@@ -18,16 +16,17 @@ from settings import logger
 
 
 def process(release, previous):
+    logger.info("Processing release {}. Checking previous release {} for additions and removals.".format(release, previous))
     current_path = utils.get_rdf_path(release)
     previous_path = utils.get_rdf_path(previous)
     staging_path = utils.get_staging_path(release)
-    add_path = utils._do_paths(staging_path, 'add')
-    remove_path = utils._do_paths(staging_path, 'delete')
+    add_path = utils.mk_paths(staging_path, 'add')
+    remove_path = utils.mk_paths(staging_path, 'delete')
 
-    for rfile in glob.glob(os.path.join(current_path, '*.nt')):
-        current_g = Graph().parse(rfile, format="nt")
-        logger.info("Processing {}. Found {} incoming triples.".format(rfile, len(current_g)))
-        fn = os.path.split(rfile)[-1]
+    for triple_file in glob.glob(os.path.join(current_path, '*.nt')):
+        current_g = Graph().parse(triple_file, format="nt")
+        logger.info("Processing {}. Found {} incoming triples.".format(triple_file, len(current_g)))
+        fn = os.path.split(triple_file)[-1]
         last_file = os.path.join(previous_path, fn)
         if os.path.exists(last_file) is True:
             last_g = Graph().parse(last_file, format="nt")
@@ -59,6 +58,8 @@ if __name__ == "__main__":
         previous = args.previous
     else:
         previous = args.release - 1
+        if previous < 0:
+            raise Exception("Negative release numbers not allowed. Check release arguments.")
 
     process(args.release, previous)
 
