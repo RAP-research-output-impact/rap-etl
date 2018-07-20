@@ -63,3 +63,8 @@ This script will save RDF files of additions and removals to the 'staging' direc
 `$ python post_rdf.py --delete --path data/staging/5/delete/*.nt`
 
 The RAP should now be updated with the latest release.
+
+### Building person profiles
+Person profiles can be generated from the WOS XML. These profiles use a combination of ResearcherID, ORICD, and DAIS identifiers.
+
+`$ python build_profiles.py --release 5`

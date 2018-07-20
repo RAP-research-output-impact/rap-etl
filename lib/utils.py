@@ -1,3 +1,5 @@
+
+import glob
 import os
 
 from settings import PUBS_PATH, RDF_PATH, STAGING_PATH
@@ -22,3 +24,8 @@ def get_rdf_path(release):
 
 def get_staging_path(release):
     return mk_paths(STAGING_PATH, release)
+
+
+def get_release_xml_files(release):
+    pp = get_pubs_base_path(release)
+    return [f for f in glob.glob(os.path.join(pp, '*/*.xml'))]

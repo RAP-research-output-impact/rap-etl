@@ -52,9 +52,9 @@ INCITES_TOTAL_CITES_YEAR = "http://localhost/data/incites-total-cites-year-count
 DEPARTMENT_UNKNOWN_LABEL = "Department Unknown"
 
 
-ORCID_FILE = 'data/dais_to_orcid.json'
-RID_FILE = 'data/dais_to_rid.json'
-AU_ID_FILE = 'data/au_id_to_dais.json'
+ORCID_FILE = 'data/profiles/dais_to_orcid.json'
+RID_FILE = 'data/profiles/dais_to_rid.json'
+AU_ID_FILE = 'data/profiles/au_id_to_dais.json'
 
 
 SEED = 71

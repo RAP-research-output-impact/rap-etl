@@ -2,16 +2,19 @@
 Build person profiles using ORCID, ResearcherID, email data from WOS records.
 
 """
-
+import argparse
 from collections import defaultdict
 import json
+import os
 
 from rdflib import Graph, URIRef, Literal
 from rdflib.query import ResultException
 from rdflib.resource import Resource
 
-from lib import backend
+from lib import backend, utils
+
 import publications
+
 from namespaces import (
     rq_prefixes,
     WOS,
@@ -175,13 +178,13 @@ def build_orcid_rid_profiles():
     Builds profiles for researchers with RIDs or ORCIDs.
     """
     q = rq_prefixes + """
-    select 
+    select
         (COUNT(?aship) as ?num)
-        ?dais 
+        ?dais
         (group_concat(distinct ?fullName ; separator = "|") AS ?full_names)
-        (SAMPLE(?fullName) AS ?name) 
-        (SAMPLE(?first) AS ?firstName) 
-        (SAMPLE(?last) AS ?lastName) 
+        (SAMPLE(?fullName) AS ?name)
+        (SAMPLE(?first) AS ?firstName)
+        (SAMPLE(?last) AS ?lastName)
     where {
         ?aship a vivo:Authorship ;
             wos:fullName ?fullName ;
@@ -250,14 +253,14 @@ def build_email_profiles():
     Builds profiles for researchers with emails and a minimum number of publications.
     """
     q = rq_prefixes + """
-        select 
+        select
             (COUNT(?aship) as ?num)
             ?email
-            (SAMPLE(?fullName) AS ?name) 
+            (SAMPLE(?fullName) AS ?name)
             (group_concat(distinct ?fullName ; separator = "|") AS ?full_names)
-            (SAMPLE(?first) AS ?firstName) 
-            (SAMPLE(?last) AS ?lastName) 
-            (group_concat(distinct ?daisNg ; separator = "|") AS ?dais) 
+            (SAMPLE(?first) AS ?firstName)
+            (SAMPLE(?last) AS ?lastName)
+            (group_concat(distinct ?daisNg ; separator = "|") AS ?dais)
         where {
             ?aship a vivo:Authorship ;
                 wos:fullName ?fullName ;
@@ -303,13 +306,13 @@ def build_dais_profiles():
     with open(AU_ID_FILE) as inf:
         auid_to_dais = json.load(inf)
     q = rq_prefixes + """
-        select 
+        select
             (COUNT(?aship) as ?num)
             ?dais
             (group_concat(distinct ?fullName ; separator = "|") AS ?full_names)
-            (SAMPLE(?fullName) AS ?name) 
-            (SAMPLE(?first) AS ?firstName) 
-            (SAMPLE(?last) AS ?lastName) 
+            (SAMPLE(?fullName) AS ?name)
+            (SAMPLE(?first) AS ?firstName)
+            (SAMPLE(?last) AS ?lastName)
         where {
             ?aship a vivo:Authorship ;
                 vivo:relates ?addr ;
@@ -471,8 +474,12 @@ def add_authorship_links():
     return True
 
 
-def index():
-    data_files = publications.get_data_files()
+def index(release):
+    data_files = utils.get_release_xml_files(release)
+    if len(data_files) == 0:
+        raise Exception("No XML files found.")
+    logger.info("Processing {} publication files.".format(len(data_files)))
+
     dais_orcid = defaultdict(list)
     dais_rid = defaultdict(list)
     au_identifier_to_dais = defaultdict(list)
@@ -514,6 +521,10 @@ def index():
             else:
                 raise Exception("Unexpected contributor match count")
 
+    parent_dir = os.path.split(ORCID_FILE)[0]
+    if not os.path.exists(parent_dir):
+        os.mkdir(parent_dir)
+
     with open(ORCID_FILE, 'wb') as out_file:
         json.dump(dais_orcid, out_file)
 
@@ -525,7 +536,11 @@ def index():
 
 
 if __name__ == "__main__":
-    index()
+    parser = argparse.ArgumentParser(description='Create researcher profiles.')
+    parser.add_argument('--release', '-r', type=int, help="Release number")
+    args = parser.parse_args()
+
+    index(args.release)
     build_dais_profiles()
     build_orcid_rid_profiles()
     build_email_profiles()
