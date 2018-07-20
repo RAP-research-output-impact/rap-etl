@@ -27,7 +27,8 @@ from settings import (
     PUB_GRAPH,
     logger,
     DEPARTMENT_UNKNOWN_LABEL,
-    COUNTRY_REPLACE
+    COUNTRY_REPLACE,
+    ADDED_COUNTRIES
 )
 from namespaces import (
     D,
@@ -508,11 +509,15 @@ class RDFRecord(WosRecord):
         return g
 
     def _country(self, name):
-        short_name = COUNTRY_REPLACE.get(name)
-        if short_name is None:
-            short_name = name.replace(' ', '_')
-        uri = URIRef('http://aims.fao.org/aos/geopolitical.owl#' + short_name)
-        return uri
+        added_uri = ADDED_COUNTRIES.get(name)
+        if added_uri is not None:
+            return added_uri
+        else:
+            short_name = COUNTRY_REPLACE.get(name)
+            if short_name is None:
+                short_name = name.replace(' ', '_')
+            uri = URIRef('http://aims.fao.org/aos/geopolitical.owl#' + short_name)
+            return uri
 
     def unified_orgs(self):
         g = Graph()

@@ -1,3 +1,5 @@
+
+from namespaces import D
 from lib.log_setup import get_logger
 
 logger = get_logger()
@@ -82,6 +84,17 @@ COUNTRY_REPLACE = {
     'United Kingdom': 'United_Kingdom_of_Great_Britain_and_Northern_Ireland__the',
     'United States': 'United_States_of_America',
     'Vietnam': 'Viet_Nam'
+}
+
+# Countries not in VIVO by default but added here.
+ADDED_COUNTRIES = {
+    "Taiwan": D['country-taiwan'],
+    "Bolivia": D['country-bolivia'],
+    "Macedonia": D['country-macedonia'],
+    "Ivory Coast": D['country-ivory-coast'],
+    "Bermuda": D['country-bermuda'],
+    "Moldova": D['country-moldova'],
+    "Reunion": D['country-reunion']
 }
 
 
