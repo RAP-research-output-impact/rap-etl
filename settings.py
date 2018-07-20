@@ -24,6 +24,7 @@ DATA_RELEASE = {
 RECORD_PATH = 'data/pubs/*/*.xml'
 RDF_PATH = 'data/rdf/'
 PUBS_PATH = 'data/pubs/'
+STAGING_PATH = 'data/staging'
 
 PUB_GRAPH = "http://localhost/data/pubs"
 CATEGORY_GRAPH = "http://localhost/data/wos-categories"

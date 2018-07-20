@@ -13,7 +13,8 @@ import sys
 import luigi
 from rdflib import Graph
 
-from settings import logger, PUBS_PATH, RDF_PATH, DATA_RELEASE
+from lib import utils
+from settings import logger, DATA_RELEASE
 
 from publications import (
     RDFRecord,
@@ -24,7 +25,8 @@ from publications import (
 
 
 def yield_files(release):
-    p = os.path.join(PUBS_PATH, "v{}".format(str(release)), '*', '*.xml')
+    pubs_dir = utils.get_pubs_base_path(release)
+    p = os.path.join(pubs_dir, '*', '*.xml')
     file_names = [f for f in glob.glob(p)]
     for fn in file_names:
         with open(fn) as inf:
@@ -37,18 +39,11 @@ class Base(luigi.Task):
     release = luigi.IntParameter()
 
     def get_out_path(self, name):
-        dirp = os.path.join(RDF_PATH, "v{}".format(self.release))
-        if os.path.exists(dirp) is not True:
-            os.mkdir(dirp)
-        p = os.path.join(dirp, name)
+        rdf_dir = utils.get_rdf_path(self.release)
+        p = os.path.join(rdf_dir, name)
         return p
 
     def serialize(self, graph):
-        # post - VIVO doesn't handle concurrent writes well
-        # named_graph = self.NG_BASE + self.output().path.split("/")[-1].split(".")[0]
-        # logger.info("Syncing graph to {}.".format(named_graph))
-        # added, removed = backend.sync_updates(named_graph, graph)
-
         # write to file
         with self.output().open('w') as out_file:
             raw = graph.serialize(format='nt')
@@ -58,9 +53,10 @@ class Base(luigi.Task):
 class DoPubs(Base):
 
     def run(self):
+        logger.info("Indexing publications")
         g = Graph()
         for rec in yield_files(self.release):
-            logger.debug("Mapping {} to RDF.".format(rec.ut))
+            logger.debug("Mapping base publication {} to RDF.".format(rec.ut))
             g += rec.to()
 
         self.serialize(g)
@@ -73,9 +69,10 @@ class DoPubs(Base):
 class DoVenues(Base):
 
     def run(self):
+        logger.info("Indexing venues")
         g = Graph()
         for rec in yield_files(self.release):
-            logger.info("Mapping {} to RDF.".format(rec.ut))
+            logger.debug("Mapping venues {} to RDF.".format(rec.ut))
             g += rec.venue()
 
         self.serialize(g)
@@ -88,9 +85,10 @@ class DoVenues(Base):
 class DoAuthorship(Base):
 
     def run(self):
+        logger.info("Indexing authorship")
         g = Graph()
         for rec in yield_files(self.release):
-            logger.info("Mapping {} to RDF.".format(rec.ut))
+            logger.debug("Mapping authorship {} to RDF.".format(rec.ut))
             g += rec.authorships()
 
         self.serialize(g)
@@ -103,9 +101,10 @@ class DoAuthorship(Base):
 class DoAddress(Base):
 
     def run(self):
+        logger.info("Indexing addresses")
         g = Graph()
         for rec in yield_files(self.release):
-            logger.info("Mapping {} to RDF.".format(rec.ut))
+            logger.debug("Mapping addresses {} to RDF.".format(rec.ut))
             g += rec.addressships()
 
         self.serialize(g)
@@ -118,9 +117,10 @@ class DoAddress(Base):
 class DoSubOrgs(Base):
 
     def run(self):
+        logger.info("Indexing sub orgs")
         g = Graph()
         for rec in yield_files(self.release):
-            logger.info("Mapping {} to RDF.".format(rec.ut))
+            logger.debug("Mapping sub orgs {} to RDF.".format(rec.ut))
             g += rec.sub_orgs()
 
         self.serialize(g)
@@ -133,9 +133,10 @@ class DoSubOrgs(Base):
 class DoUnifiedOrgs(Base):
 
     def run(self):
+        logger.info("Indexing unified orgs")
         g = Graph()
         for rec in yield_files(self.release):
-            logger.info("Mapping {} to RDF.".format(rec.ut))
+            logger.debug("Mapping unified orgs {} to RDF.".format(rec.ut))
             g += rec.unified_orgs()
 
         self.serialize(g)
@@ -148,9 +149,10 @@ class DoUnifiedOrgs(Base):
 class DoCategories(Base):
 
     def run(self):
+        logger.info("Indexing categories")
         g = Graph()
         for rec in yield_files(self.release):
-            logger.info("Mapping {} to RDF.".format(rec.ut))
+            logger.debug("Mapping categories {} to RDF.".format(rec.ut))
             g += rec.categories_g()
 
         self.serialize(g)
@@ -164,8 +166,9 @@ class KeywordsPlus(Base):
 
     def run(self):
         kwp_g = Graph()
-        logger.info("Indexing publication keywords")
+        logger.info("Indexing keywords plus")
         for rec in yield_files(self.release):
+            logger.debug("Mapping keywords plus {} to RDF.".format(rec.ut))
             for kwp in rec.keywords_plus():
                 kwp_g += add_keyword_plus_data_property(kwp, rec.uri)
 
@@ -180,8 +183,9 @@ class AuthorKeywords(Base):
 
     def run(self):
         outg = Graph()
-        logger.info("Indexing publication keywords")
+        logger.info("Indexing author keywords")
         for rec in yield_files(self.release):
+            logger.debug("Mapping author keywords {} to RDF.".format(rec.ut))
             for kw in rec.author_keywords():
                 outg += add_author_keyword_data_property(kw, rec.uri)
 
@@ -199,6 +203,7 @@ class Grants(Base):
         logger.info("Indexing grants")
         for rec in yield_files(self.release):
             for grant in rec.grants():
+                logger.debug("Mapping grants and funders {} to RDF.".format(rec.ut))
                 g += add_grant(grant, rec.uri)
 
         self.serialize(g)
@@ -226,7 +231,7 @@ class DoPubProcess(luigi.Task):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Map WOS documents to RDF')
-    parser.add_argument('--release', '-r', default=500, type=int, help="Release number")
+    parser.add_argument('--release', '-r', type=int, help="Release number")
     parser.add_argument('--local', '-l', default=False, action="store_true", help="Use local scheduler")
     parser.add_argument('--workers', '-w', default=3, help="luigi workers")
     args = parser.parse_args(sys.argv[1:])
