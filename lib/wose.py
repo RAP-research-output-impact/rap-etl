@@ -5,7 +5,9 @@ import base64
 import math
 import os
 import re
+import sys
 from string import Template
+
 import xml.etree.ElementTree as ET
 
 import logging
@@ -247,7 +249,7 @@ def raw_query(q, sid, count=100, get_all=False):
                 recs = wq.retrieve(rq).strip()
                 tr = get_recs(recs)
                 out_recs += tr
-    return qid, num, out_recs
+        return qid, num, out_recs
 
 
 def get_dp(rec, path):
@@ -258,8 +260,6 @@ def get_dp(rec, path):
 
 
 if __name__ == "__main__":
-    import sys
-    import os
 
     user = os.environ['WOS_USER']
     password = os.environ['WOS_PASSWORD']
