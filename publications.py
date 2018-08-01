@@ -61,7 +61,7 @@ def slug_uri(text, prefix="e"):
 
 
 def waan_uri(text):
-    ln = slugify(text)
+    ln = slugify(unicode(text))
     return D["org-" + ln]
 
 
@@ -132,13 +132,13 @@ def add_grant(grant, pub_uri):
     if grant.get("agency") is None:
         logger.info("No agency found for {} with ids.".format(pub_uri, ";".join(grant.get("ids", []))))
         return g
-    slug = slugify(grant["agency"])
+    slug = slugify(unicode(grant["agency"]))
     uri = D['funder-' + slug]
     g.add((uri, RDF.type, WOS.Funder))
     g.add((uri, RDFS.label, Literal(grant["agency"])))
     for gid in grant["ids"]:
         label = "{} - {}".format(grant["agency"], gid)
-        guri = D['grant-'] + slugify(label)
+        guri = D['grant-'] + slugify(unicode(label))
         g.add((guri, RDF.type, WOS.Grant))
         g.add((guri, RDFS.label, Literal(label)))
         g.add((guri, WOS.grantId, Literal(gid)))
