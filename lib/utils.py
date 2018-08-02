@@ -5,6 +5,13 @@ import os
 from settings import PUBS_PATH, RDF_PATH, STAGING_PATH
 
 
+def get_env(key):
+    try:
+        return os.environ[key]
+    except KeyError:
+        raise Exception("Required environment variable not found: {}.".format(key))
+
+
 def mk_paths(main, release):
     p = os.path.join(main, str(release))
     if not os.path.exists(main):
