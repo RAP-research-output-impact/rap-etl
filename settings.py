@@ -13,7 +13,7 @@ DATA_RELEASE = {
         'end': '2018-03-30'
     },
     2: {
-        'start': '2018-01-01',
+        'start': '2017-11-01',
         'end': '2018-02-14'
     },
     1: {
@@ -26,6 +26,7 @@ DATA_RELEASE = {
 RECORD_PATH = 'data/pubs/*/*.xml'
 RDF_PATH = 'data/rdf/'
 PUBS_PATH = 'data/pubs/'
+INCITES_PATH = 'data/incites/'
 STAGING_PATH = 'data/staging'
 
 NG_BASE = "http://localhost/data/"
