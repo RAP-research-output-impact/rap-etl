@@ -111,7 +111,7 @@ class InCites(object):
             rsp = self._data_request(url, payload)
             items = rsp['items']
             for item in items:
-                out[item['sbjName']].append([{"count": item['wosDocuments']['value'], 'year': year}])
+                out[item['sbjName']].append({"count": item['wosDocuments']['value'], 'year': year})
 
         # Reshape format to match previous format with list of categories and counts.
         rout = []

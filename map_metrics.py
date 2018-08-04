@@ -15,13 +15,15 @@ from namespaces import (
 )
 
 from lib import backend
-from wos_categories import get_category_uri
+from lib.utils import get_category_uri
 from publications import waan_uri
 
 import settings
 
 
 logger = settings.get_logger()
+
+RELEASE = sys.argv[1]
 
 
 def local_name(uri):
@@ -46,7 +48,7 @@ def get_unified_orgs():
 def load_incites_json_file(name, ictype):
     fname = "org-" + slugify(name)
     try:
-        with open('data/incites/{}/{}.json'.format(ictype, fname)) as inf:
+        with open('data/incites/v{}/{}/{}.json'.format(RELEASE, ictype, fname)) as inf:
             return json.load(inf)
     except IOError:
         logger.warn("Could not find metrics for {}.".format(name))
@@ -136,10 +138,10 @@ def main():
     save_rdf(top_cats, settings.INCITES_TOP_CATEGORIES)
 
     cites_by_year = org_total_cites(to_load)
-    save_rdf(cites_by_year, settings.TOTAL_CITES_YEAR)
+    save_rdf(cites_by_year, settings.INCITES_TOTAL_CITES_YEAR)
 
     counts = org_total_counts(to_load)
-    save_rdf(counts, settings.PUB_YEAR_COUNTS)
+    save_rdf(counts, settings.INCITES_PUB_YEAR_COUNTS)
 
 
 if __name__ == "__main__":

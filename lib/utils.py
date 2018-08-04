@@ -2,7 +2,11 @@
 import glob
 import os
 
+from slugify import slugify
+
+
 from settings import PUBS_PATH, RDF_PATH, STAGING_PATH, INCITES_PATH
+from namespaces import D
 
 
 def get_env(key):
@@ -48,3 +52,7 @@ def get_incites_output_path(release, ic_type, org_id):
         os.mkdir(p)
     output_file = os.path.join(p, "{}.json".format(org_id))
     return output_file
+
+
+def get_category_uri(name):
+    return D['wosc-' + slugify(name)]
