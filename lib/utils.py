@@ -2,7 +2,7 @@
 import glob
 import os
 
-from settings import PUBS_PATH, RDF_PATH, STAGING_PATH
+from settings import PUBS_PATH, RDF_PATH, STAGING_PATH, INCITES_PATH
 
 
 def get_env(key):
@@ -13,7 +13,7 @@ def get_env(key):
 
 
 def mk_paths(main, release):
-    p = os.path.join(main, str(release))
+    p = os.path.join(main, "v{}".format(str(release)))
     if not os.path.exists(main):
         os.mkdir(main)
     if not os.path.exists(p):
@@ -36,3 +36,15 @@ def get_staging_path(release):
 def get_release_xml_files(release):
     pp = get_pubs_base_path(release)
     return [f for f in glob.glob(os.path.join(pp, '*/*.xml'))]
+
+
+def get_incites_base_path(release):
+    return mk_paths("incites", release)
+
+def get_incites_output_path(release, ic_type, org_id):
+    bp = mk_paths(INCITES_PATH, release)
+    p = os.path.join(bp, ic_type)
+    if not os.path.exists(p):
+        os.mkdir(p)
+    output_file = os.path.join(p, "{}.json".format(org_id))
+    return output_file
