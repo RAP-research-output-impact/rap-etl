@@ -129,7 +129,7 @@ def read_orgs(org_file):
             name = row['name']
             oid = row['rap_id']
             out.append((oid, name))
-            if n >= 100:
+            if n >= 5:
                 break
     return out
 

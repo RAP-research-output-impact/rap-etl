@@ -3,6 +3,7 @@ Map data from the internal InCites API to VIVO.
 """
 import json
 import os
+import sys
 
 from slugify import slugify
 from rdflib import Graph, Literal, RDF, RDFS

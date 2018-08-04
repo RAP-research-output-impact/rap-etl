@@ -36,7 +36,8 @@ python -m unittest discover tests
 
 ### Running a harvest
 
-* Create a "data release" in `settings.py` by updating the start and end date for the time span you are interested in and increment the version number. It's important to keep these sequential. For demonstration purposes we will use '5' as the release version, with '4' being the previous release.
+##### Create a "data release" in `settings.py`
+Update the start and end date for the time span you are interested in and increment the version number. It's important to keep these sequential. For demonstration purposes we will use '5' as the release version, with '4' being the previous release.
 
 ##### Fetch new WOS publication XML for the data release
 
