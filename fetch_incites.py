@@ -16,6 +16,8 @@ import settings
 from settings import logger
 from lib.utils import get_env, get_incites_base_path, get_incites_output_path
 
+from map_metrics import get_unified_orgs
+
 base_url = 'https://incites.thomsonreuters.com/incites-app/'
 
 
@@ -123,18 +125,6 @@ class InCites(object):
         return rout
 
 
-def read_orgs(org_file):
-    out = []
-    with open(org_file) as ogf:
-        for n, row in enumerate(csv.DictReader(ogf, delimiter=",")):
-            name = row['name']
-            oid = row['rap_id']
-            out.append((oid, name))
-            if n >= 5:
-                break
-    return out
-
-
 def get_org(args):
     release, ic, oid, name, start, stop = args
     logger.info("Processing InCites for release v{} and {} {}.".format(release, oid, name))
@@ -164,12 +154,12 @@ def get_org(args):
     return True
 
 
-def main(input_file, release):
+def main(release):
     start, stop = get_start_stop(release)
     logger.info("Setting up InCites connection.")
     ic = InCites()
     ic.login()
-    orgs = [(release, ic, oid, name, start, stop) for oid, name in read_orgs(input_file)]
+    orgs = [(release, ic, oid, name, start, stop) for oid, name in get_unified_orgs(release)]
 
     p = multiprocessing.Pool(4)
     p.map(get_org, orgs)
@@ -178,8 +168,7 @@ def main(input_file, release):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Get orgs')
-    parser.add_argument("incites_orgs_file")
+    parser = argparse.ArgumentParser(description='Fetch Incites Data')
     parser.add_argument("--release", type=int)
     args = parser.parse_args()
-    main(args.incites_orgs_file, args.release)
+    main(args.release)

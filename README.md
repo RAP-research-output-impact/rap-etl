@@ -71,21 +71,17 @@ The RAP should now be updated with the latest release.
 
 ### Updating InCites data
 
-#### Produce a list of organizations
-
-Find all unified organizations from the latest release latest and save to a csv.
-
-`$ python incites_orgs.py data/rdf/5/unified-orgs.nt data/incites_orgs.txt`
-
 #### Harvest InCites data
 
 Run the InCites harvest using the organizations found above.
 
-`python fetch_incites.py data/incites_orgs.txt --release 5`
+`python fetch_incites.py --release 5`
+
+#### Map InCites data to RDF
 
 Map the InCites data to RDF.
 
-`python map_metrices.py 5`
+`python map_metrices.py --release 5`
 
 ##### Post the additions to VIVO
 

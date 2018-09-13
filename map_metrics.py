@@ -1,6 +1,7 @@
 """
 Map data from the internal InCites API to VIVO.
 """
+import argparse
 import json
 import os
 import sys
@@ -31,18 +32,17 @@ def local_name(uri):
     return uri.split('/')[-1]
 
 
-def get_unified_orgs():
-    q = rq_prefixes + """
-    select ?wosU ?org
-    where {
-        ?wosU a wos:UnifiedOrganization ;
-            rdfs:label ?org .
-    }
-    """
-    vstore = backend.get_store()
+def get_unified_orgs(release):
     out = []
-    for row in vstore.query(q):
-        out.append((row.wosU.toPython(), row.org.toPython()))
+
+    organizations_file = os.path.join("data", "rdf", str(release), "unified-orgs.nt")
+    g = Graph().parse(organizations_file, format="nt")
+    rsp = g.query(rq_prefixes + "SELECT ?uri ?name WHERE {?uri a wos:UnifiedOrganization; rdfs:label ?name}")
+
+    for row in rsp:
+        out.append((local_name(row.uri.toPython()), row.name.toPython()))
+
+    logger.info("Found {} organizations.".format(len(out)))
     return out
 
 
@@ -131,8 +131,12 @@ def main():
     """
     Get the orgs in the system and load the incites data for each.
     """
+    parser = argparse.ArgumentParser(description='Map InCites data to RDF')
+    parser.add_argument("--release", type=int)
+    args = parser.parse_args()
+
     to_load = []
-    for ouri, name in get_unified_orgs():
+    for ouri, name in get_unified_orgs(args.release):
         to_load.append(name)
 
     top_cats = org_top_categories(to_load)
