@@ -1,11 +1,12 @@
 """
 Harvest data from InCites API.
 """
-
+import argparse
 from collections import defaultdict
 import csv
 import json
 import logging
+import multiprocessing
 import os
 import sys
 
@@ -163,10 +164,7 @@ def get_org(args):
     return True
 
 
-def main(input_file):
-    import multiprocessing
-
-    release = 2
+def main(input_file, release):
     start, stop = get_start_stop(release)
     logger.info("Setting up InCites connection.")
     ic = InCites()
@@ -180,5 +178,8 @@ def main(input_file):
 
 
 if __name__ == '__main__':
-    #raise Exception("No main function")
-    main(sys.argv[1])
+    parser = argparse.ArgumentParser(description='Get orgs')
+    parser.add_argument("incites_orgs_file")
+    parser.add_argument("--release", type=int)
+    args = parser.parse_args()
+    main(args.incites_orgs_file, args.release)

@@ -57,7 +57,7 @@ We will compare this release RDF against the last data release so that we only p
 
 `$ python diff_releases.py --release 5`
 
-This script will save RDF files of additions and removals to the 'staging' directory specified in `settings.py`, which is set to `data/staging` by default.
+This script will save RDF files of additions and removals to the `staging` directory specified in `settings.py`, which is set to `data/staging` by default.
 
 ##### Post the additions to VIVO
 
@@ -68,6 +68,28 @@ This script will save RDF files of additions and removals to the 'staging' direc
 `$ python post_rdf.py --delete --path data/staging/5/delete/*.nt`
 
 The RAP should now be updated with the latest release.
+
+### Updating InCites data
+
+#### Produce a list of organizations
+
+Find all unified organizations from the latest release latest and save to a csv.
+
+`$ python incites_orgs.py data/rdf/5/unified-orgs.nt data/incites_orgs.txt`
+
+#### Harvest InCites data
+
+Run the InCites harvest using the organizations found above.
+
+`python fetch_incites.py data/incites_orgs.txt --release 5`
+
+Map the InCites data to RDF.
+
+`python map_metrices.py 5`
+
+##### Post the additions to VIVO
+
+`$ python post_rdf.py --path data/incites/*.nt`
 
 ### Building person profiles
 Person profiles can be generated from the WOS XML. These profiles use a combination of ResearcherID, ORICD, and DAIS identifiers.
