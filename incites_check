@@ -1,0 +1,160 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Fatal qw(open mkdir unlink);
+use JSON::XS;
+
+my $rel;
+my $del;
+my $ver;
+if (!-d 'data') {
+    mkdir ('data', 0775);
+}
+if (!-d 'data/spreadsheets') {
+    mkdir ('data/spreadsheets', 0775);
+}
+while ((@ARGV) && ($ARGV[0] =~ m/^-/)) {
+    my $arg = shift (@ARGV);
+    if ($arg eq '-r') {
+        $rel = shift (@ARGV);
+        if ($rel > 0) {
+            $rel = sprintf ('%03d', $rel);
+        } else {
+            die ("usage: incites_check <-r release> [-d | --delete] [-v | --verbose]\n");
+        }
+        next;
+    }
+    if (($arg eq '-d') || ($arg eq '--delete')) {
+        $del = 1;
+        next;
+    }
+    if (($arg eq '-v') || ($arg eq '--verbose')) {
+        $ver = 1;
+        next;
+    }
+    warn ("unknown argument: $arg\n");
+    die ("usage: incites_check <-r release> [-d | --delete] [-v | --verbose]\n");
+}
+if (!$rel) {
+    die ("usage: incites_check <-r release> [-d | --delete] [-v | --verbose]\n");
+}
+if (!-e "data/rdf/$rel/unified-orgs.nt") {
+    die ("fatal: could not find data/rdf/$rel/unified-orgs.nt\n");
+}
+my $orgs = {};
+open (FIN, "data/rdf/$rel/unified-orgs.nt");
+while (<FIN>) {
+    chomp;
+    if (m/^\s*$/) {
+        next;
+    }
+    my ($uri, $type, $val) = split (' ', $_, 3);
+    if ($type eq '<http://www.w3.org/2000/01/rdf-schema#label>') {
+        if (m|<http://rap\.adm\.dtu\.dk/individual/(org-[^>]+)>|) {
+            my $id = $1;
+            $val =~ s/^\s*"\s*//;
+            $val =~ s/\s*"\s*\.?$//;
+            $val =~ s/\\"/"/g;
+            $orgs->{$id} = $val;
+        } else {
+            die ("failed to extract uri from $uri\n");
+        }
+    }
+}
+close (FIN);
+open (FIN, "find data/incites/$rel/ -name '*.json' |");
+while (<FIN>) {
+    chomp;
+    s/.*\///;
+    s/\.json//;
+    if (!$orgs->{$_}) {
+        die ("fatal: unknown org found in json: $_\n");
+    }
+}
+close (FIN);
+open (FOU, '> data/spreadsheets/incites_check.csv');
+print (FOU "WoS Unified Organisations not found in Incites\n\n");
+print (FOU "RAP ID\tName\n");
+my $count = {total => 0, error => 0, missing => 0, cat => 0, cites => 0, collind => 0, collint => 0, impact => 0, top1 => 0, top10 => 0, total => 0};
+foreach my $org (sort (keys (%{$orgs}))) {
+    $count->{'total'}++;
+    my $error = 0;
+    foreach my $type ('categories-by-year', 'cites', 'collind', 'collint', 'impact', 'top1', 'top10', 'total') {
+        if (!-e "data/incites/$rel/$type/$org.json") {
+            if ($ver) {
+                warn ("error: missing data/incites/$rel/$type/$org.json\n");
+            }
+            $error++;
+            $count->{'missing'}++;
+        } else {
+            my $json = &json_load ("data/incites/$rel/$type/$org.json");
+            my $done = 0;
+            if ($type eq 'categories-by-year') {
+                foreach my $sub (@{$json}) {
+                    foreach my $ele (@{$sub->{'counts'}}) {
+                        if (($ele->{'year'} >= 2007) || ($ele->{'year'} <= 2019)) {
+                            $done = 1;
+                            last;
+                        }
+                    }
+                    if ($done) {
+                        last;
+                    }
+                }
+            } else {
+                foreach my $ele (@{$json}) {
+                    if (($ele->{'year'} >= 2007) || ($ele->{'year'} <= 2019)) {
+                        $done = 1;
+                        last;
+                    }
+                }
+            }
+            if (!$done) {
+                if ($ver) {
+                    warn ("error: no year for data/incites/$rel/$type/$org.json\n");
+                }
+                $error++;
+                if ($type eq 'categories-by-year') {
+                    $count->{'cat'}++;
+                } else {
+                    $count->{$type}++;
+                }
+            }
+        }
+    }
+    if ($error) {
+        if ($ver) {
+            warn ("error: $error errors for $org\n");
+        } else {
+            printf (FOU "%s\t%s\n", $org, $orgs->{$org});
+        }
+        $count->{'error'}++;
+        if ($del) {
+            foreach my $type ('categories-by-year', 'cites', 'collind', 'collint', 'impact', 'top1', 'top10', 'total') {
+                if (-e "data/incites/$rel/$type/$org.json") {
+                    unlink ("data/incites/$rel/$type/$org.json");
+                }
+            }
+        }
+    }
+    if (($count->{'total'} % 100) == 0) {
+        printf (STDERR "%d orgs, %d errors\n", $count->{'total'}, $count->{'error'});
+    }
+}
+close (FOU);
+printf (STDERR "%d orgs, %d errors\n", $count->{'total'}, $count->{'error'});
+foreach my $key (sort (keys (%{$count}))) {
+    printf (STDERR "%6d %s\n", $count->{$key}, $key);
+}
+exit (0);
+
+sub json_load
+{
+    my ($file) = @_;
+
+    open (my $fin, $file);
+    my $json = join ('', <$fin>);
+    close ($fin);
+    return (decode_json ($json));
+}

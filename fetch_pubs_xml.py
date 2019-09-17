@@ -83,14 +83,13 @@ def fetch(query, start, stop, sid):
     qid, num, records = wose.raw_query(q, sid, get_all=True)
     logger.info("{} records found.".format(len(records)))
     # Make output dir
-    op = utils.get_pubs_base_path(args.release)
+    op = utils.get_pubs_base_path(utils.RELEASE)
     for rec in records:
         ut = rec.find('./UID').text
         path = get_path(ut, base_path=op)
         with open(path, 'w') as outfile:
             outfile.write(ET.tostring(rec))
     return True
-
 
 
 if __name__ == "__main__":
@@ -102,11 +101,9 @@ if __name__ == "__main__":
     start_stop = []
     query = "OG=({})".format(ORG_NAME)
     logger.info("Query: {}".format(query))
-    try:
-        rel = DATA_RELEASE[args.release]
-    except KeyError:
-        raise Exception("Release {} not found. Make sure release is specified in settings.DATA_RELEASE".format(args.release))
 
-    fetch(query, rel['start'], rel['end'], args.session)
-
-
+    utils.release(args.release)
+    if utils.RELEASE == 0:
+        raise Exception("fatal: release not found: {}".format(args.release))
+    logger.info("release: {}, from: {}, to: {}".format(utils.RELEASE, utils.RELEASE_FROM, utils.RELEASE_TO))
+    fetch(query, utils.RELEASE_FROM, utils.RELEASE_TO, args.session)

@@ -10,6 +10,7 @@ import glob
 import random
 import sys
 import xml.etree.ElementTree as ET
+import re
 
 
 # installed
@@ -28,7 +29,8 @@ from settings import (
     logger,
     DEPARTMENT_UNKNOWN_LABEL,
     COUNTRY_REPLACE,
-    ADDED_COUNTRIES
+    ADDED_COUNTRIES,
+    COUNTRY_OVERRIDE
 )
 from namespaces import (
     D,
@@ -294,7 +296,11 @@ class WosRecord(object):
             except IndexError:
                 org_name = "n/a"
             if sub_orgs == []:
-                sub_orgs = [DEPARTMENT_UNKNOWN_LABEL]
+                if unified_orgs != [] and unified_orgs[0] == "Technical University of Denmark" and org_name != "n/a":
+                    sub_orgs = [org_name]
+                    logger.info("Using org name as sub-org: {}".format(org_name))
+                else:
+                    sub_orgs = [DEPARTMENT_UNKNOWN_LABEL]
             country = spec.find('country').text
             out.append(
                 dict(
@@ -509,11 +515,14 @@ class RDFRecord(WosRecord):
         return g
 
     def _country(self, name):
-        added_uri = ADDED_COUNTRIES.get(name)
+        key = re.sub(r'[^a-z]+', '_', name.lower())
+        key = re.sub(r'^_+', '', key);
+        key = re.sub(r'_+$', '', key);
+        added_uri = ADDED_COUNTRIES.get(key)
         if added_uri is not None:
             return added_uri
         else:
-            short_name = COUNTRY_REPLACE.get(name)
+            short_name = COUNTRY_REPLACE.get(key)
             if short_name is None:
                 short_name = name.replace(' ', '_')
             uri = URIRef('http://aims.fao.org/aos/geopolitical.owl#' + short_name)
@@ -528,7 +537,11 @@ class RDFRecord(WosRecord):
                 r = Resource(g, uri)
                 r.set(RDF.type, WOS.UnifiedOrganization)
                 r.set(RDFS.label, Literal(org))
-                country_uri = self._country(addr["country"])
+                country = COUNTRY_OVERRIDE.get("org-" + slugify(unicode(org)))
+                if country is None:
+                    country_uri = self._country(addr["country"])
+                else:
+                    country_uri = self._country(country)
                 r.set(OBO['RO_0001025'], country_uri)
                 # relation set by address
         return g

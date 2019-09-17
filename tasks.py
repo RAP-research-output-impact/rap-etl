@@ -236,12 +236,10 @@ if __name__ == '__main__':
     parser.add_argument('--workers', '-w', default=3, help="luigi workers")
     args = parser.parse_args(sys.argv[1:])
 
-    try:
-        rel_info = DATA_RELEASE[args.release]
-    except KeyError:
-        raise Exception("Release {} not found. Make sure release is specified in settings.DATA_RELEASE".format(args.release))
-
-    params = ["--release={}".format(args.release), "--workers={}".format(args.workers)]
+    utils.release(args.release)
+    if utils.RELEASE == 0:
+        raise Exception("fatal: release not found: {}".format(args.release))
+    params = ["--release={}".format(utils.RELEASE), "--workers={}".format(args.workers)]
     if args.scheduler is not True:
         params.append("--local-scheduler")
     luigi.run(params, main_task_cls=DoPubProcess)

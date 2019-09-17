@@ -8,6 +8,7 @@ from rdflib import RDFS, OWL, XSD
 #setup namespaces
 #code inspired by / borrowed from https://github.com/libris/librislod
 #local data namespace
+
 D = Namespace(os.environ['DATA_NAMESPACE'])
 
 VIVO = Namespace('http://vivoweb.org/ontology/core#')
@@ -21,6 +22,7 @@ VCARD = Namespace('http://www.w3.org/2006/vcard/ns#')
 OBO = Namespace('http://purl.obolibrary.org/obo/')
 WOS = Namespace("http://webofscience.com/ontology/wos#")
 SCHEMA = Namespace("http://schema.org/")
+GEO = Namespace("http://aims.fao.org/aos/geopolitical.owl#")
 
 #tmp graph for in memory graphs
 TMP = Namespace('http://localhost/tmp#')

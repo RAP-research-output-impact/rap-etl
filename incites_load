@@ -1,0 +1,325 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use JSON::XS;
+use DBI;
+use Time::HiRes qw(time);
+use Fatal qw(open rename);
+
+my $args = {};
+while ((@ARGV) && ($ARGV[0] =~ m/^-/)) {
+    my $arg = shift (@ARGV);
+    if ($arg eq '-r') {
+        $args->{'rel'} = shift (@ARGV);
+        if ($args->{'rel'} > 0) {
+            $args->{'rel'} = sprintf ('%03d', $args->{'rel'});
+        } else {
+            &usage ('invalid release value: %s', $args->{'rel'});
+        }
+        next;
+    }
+    if ($arg =~ m/--release=(.*)/) {
+        $args->{'rel'} = $1;
+        if ($args->{'rel'} > 0) {
+            $args->{'rel'} = sprintf ('%03d', $args->{'rel'});
+        } else {
+            &usage ('invalid release value: %s', $args->{'rel'});
+        }
+        next;
+    }
+    &usage ('invalid argument: %s', $arg);
+}
+if (!$args->{'rel'}) {
+    &usage ();
+}
+my $dbh = &create ();
+my $orgs = &orgs ($dbh);
+my $subs = &subs ($dbh);
+my $wosc = {};
+open (FIN, "data/rdf/$args->{'rel'}/categories-pubs.nt");
+while (<FIN>) {
+    if (m/(wosc-[^>]+).*rdf-schema#label.* "(.*)"/) {
+        $wosc->{$1} = $2;
+    }
+}
+close (FIN);
+&log ('i', 'loading subjects...');
+my @files = ();
+open (FIN, "ls data/incites/$args->{'rel'}/categories-by-year/*.json |");
+while (<FIN>) {
+    chomp;
+    push (@files, $_);
+}
+my $count = {start => time, total => ($#files + 1), done => 0, subs => 0, rows => 0};
+foreach my $file (@files) {
+    my $org = $file;
+    $org =~ s/.*\///;
+    $org =~ s/\.json//;
+    $org = &orgs_id ($dbh, $orgs, $org);
+    my $cat = &json_load ($file);
+    foreach my $c (@{$cat}) {
+        $count->{'subs'}++;
+        my $id = 'wosc-' . lc ($c->{'category'});
+        $id =~ s/[^0-9a-z]/ /g;
+        $id =~ s/\s+/ /g;
+        $id =~ s/^\s//;
+        $id =~ s/\s$//;
+        $id =~ s/\s/-/g;
+        my $label;
+        if ($wosc->{$id}) {
+            $label = $wosc->{$id};
+        } else {
+            $label = $c->{'category'};
+        }
+        $id = &subs_id ($dbh, $subs, $id, $label);
+        foreach my $co (@{$c->{'counts'}}) {
+            $co->{'org'} = $org;
+            $co->{'sub'} = $id;
+            &subcount ($dbh, $org, $id, $co->{'year'}, $co->{'count'});
+            $count->{'rows'}++;
+        }
+    }
+    $count->{'done'}++;
+    if (($count->{'done'} % 500) == 0) {
+        my $spo = (time - $count->{'start'}) / $count->{'done'};
+        my $eta = ($count->{'total'} - $count->{'done'}) * $spo;
+        &log ('i', 'done %d orgs of %d, %d subjects, %d rows (spo: %0.2f, eta: %s)', $count->{'done'}, $count->{'total'}, $count->{'subs'}, $count->{'rows'}, $spo, &eta ($eta));
+    }
+}
+my $ind = {};
+foreach my $type (qw(cites collind collint impact top1 top10 total)) {
+    &log ('i', 'loading %s...', $type);
+    @files = ();
+    open (FIN, "ls data/incites/$args->{'rel'}/$type/*.json |");
+    while (<FIN>) {
+        chomp;
+        push (@files, $_);
+    }
+    my $count = {start => time, total => ($#files + 1), done => 0, subs => 0, rows => 0};
+    foreach my $file (@files) {
+        my $org = $file;
+        $org =~ s/.*\///;
+        $org =~ s/\.json//;
+        $org = &orgs_id ($dbh, $orgs, $org);
+        my $data = &json_load ($file);
+        foreach my $ele (@{$data}) {
+            $ind->{$org}{$ele->{'year'}}{$type} = $ele->{'count'};
+        }
+        $count->{'done'}++;
+        if (($count->{'done'} % 500) == 0) {
+            my $spo = (time - $count->{'start'}) / $count->{'done'};
+            my $eta = ($count->{'total'} - $count->{'done'}) * $spo;
+            &log ('i', 'done %d orgs of %d (spo: %0.2f, eta: %s)', $count->{'done'}, $count->{'total'}, $spo, &eta ($eta));
+        }
+    }
+}
+&log ('i', 'storing indicators...');
+$count = {rows => 0};
+foreach my $org (sort {$a <=> $b} keys (%{$ind})) {
+    foreach my $year (sort (keys (%{$ind->{$org}}))) {
+        my @fld = ($org, $year);
+        foreach my $type (qw(cites collind collint impact top1 top10 total)) {
+            if (defined ($ind->{$org}{$year}{$type})) {
+                if (($ind->{$org}{$year}{$type}) || ($ind->{$org}{$year}{$type} =~ m/0/)) {
+                    push (@fld, $ind->{$org}{$year}{$type});
+                } else {
+                    push (@fld, 0);
+                }
+            } else {
+                push (@fld, 0);
+            }
+        }
+        &sql ($dbh, "insert into inds (org,year,cites,collind,collint,impact,top1,top10,total) VALUES(?,?,?,?,?,?,?,?,?)", @fld);
+        $count->{'rows'}++;
+    }
+}
+$dbh->disconnect ();
+exit (0);
+
+sub json_load
+{
+    my ($file) = @_;
+
+    open (my $fin, $file);
+    my $json = join ('', <$fin>);
+    close ($fin);
+    return (decode_json ($json));
+}
+
+sub orgs
+{
+    my ($dbh) = @_;
+
+    my $orgs = {maxid => 0};
+    my $rec;
+    my $sth = &sql ($dbh, "select id,name from orgs");
+    while ($rec = $sth->fetchrow_hashref) {
+        $orgs->{$rec->{'name'}} = {id => $rec->{'id'}};
+        if ($rec->{'id'} > $orgs->{'maxid'}) {
+            $orgs->{'maxid'} = $rec->{'id'};
+        }
+    }
+    return ($orgs);
+}
+
+sub orgs_id
+{
+    my ($dbh, $orgs, $name) = @_;
+
+    if (!exists ($orgs->{$name})) {
+        $orgs->{'maxid'}++;
+        $orgs->{$name} = {id => $orgs->{'maxid'}};
+        &sql ($dbh, "insert into orgs (id,name) VALUES(?,?)", $orgs->{$name}{'id'}, $name);
+    }
+    return ($orgs->{$name}{'id'});
+}
+
+sub subs
+{
+    my ($dbh) = @_;
+
+    my $subs = {maxid => 0};
+    my $rec;
+    my $sth = &sql ($dbh, "select id,name,label from subs");
+    while ($rec = $sth->fetchrow_hashref) {
+        $subs->{$rec->{'name'}} = {id => $rec->{'id'}, label => $rec->{'label'}};
+        if ($rec->{'id'} > $subs->{'maxid'}) {
+            $subs->{'maxid'} = $rec->{'id'};
+        }
+    }
+    return ($subs);
+}
+
+sub subs_id
+{
+    my ($dbh, $subs, $name, $label) = @_;
+
+    if (!exists ($subs->{$name})) {
+        $subs->{'maxid'}++;
+        $subs->{$name} = {id => $subs->{'maxid'}, label => $label};
+        &sql ($dbh, "insert into subs (id,name,label) VALUES(?,?,?)", $subs->{$name}{'id'}, $name, $subs->{$name}{'label'});
+    }
+    if (wantarray) {
+        return ($subs->{$name}{'id'}, $subs->{$name}{'label'});
+    } else {
+        return ($subs->{$name}{'id'});
+    }
+}
+
+sub subcount
+{
+    my ($dbh, $org, $sub, $year, $count) = @_;
+
+    &sql ($dbh, "insert into subcount (org,sub,year,count) VALUES(?,?,?,?)", $org, $sub, $year, $count);
+}
+
+sub create
+{   
+    my $dbh = DBI->connect('DBI:mysql:database=' . $ENV{'MYSQL_DB'} . ';host=localhost', $ENV{'MYSQL_USER'}, $ENV{'MYSQL_PASSWORD'}, {'RaiseError' => 1});
+    &sql ($dbh, 'create table if not exists orgs (
+                     id          smallint,
+                     name        varchar(255),
+                     
+                     primary key (id)
+                 ) ENGINE=MyISAM');
+    &sql ($dbh, 'create table if not exists subs (
+                     id          smallint,
+                     name        varchar(255),
+                     label       varchar(255),
+
+                     primary key (id)
+                 ) ENGINE=MyISAM');
+    &log ('i', 'dropping subcount...');
+    &sql ($dbh, 'drop table subcount');
+    &sql ($dbh, 'create table if not exists subcount (
+                     org         smallint,
+                     sub         smallint,
+                     year        smallint,
+                     count       mediumint,
+
+                     key         (org),
+                     key         (sub),
+                     key         (year)
+                 ) ENGINE=MyISAM');
+    &log ('i', 'dropping inds...');
+    &sql ($dbh, 'drop table inds');
+    &sql ($dbh, 'create table if not exists inds (
+                     org         smallint,
+                     year        smallint,
+                     cites       mediumint,
+                     collind     float,
+                     collint     float,
+                     impact      float,
+                     top1        float,
+                     top10       float,
+                     total       mediumint,
+
+                     key         (org),
+                     key         (year)
+                 ) ENGINE=MyISAM');
+    return ($dbh);
+}
+
+sub sql
+{
+    my ($dbh, $sql, @args) = @_;
+    my ($sth);
+
+#   print ("debug: SQL: $sql\n");
+    $sth = &prepare ($dbh, $sql);
+    &execute ($sth, @args);
+    return ($sth);
+}
+
+sub prepare
+{
+    my ($dbh, $sql) = @_;
+    my ($sth);
+
+    if ($sth = $dbh->prepare ($sql)) {
+        return ($sth);
+    } else {
+        die ('fatal: ' . $dbh->errstr . " ($sql)");
+    }
+}
+
+sub execute
+{
+    my ($sth, @args) = @_;
+    my ($status);
+
+    $sth->execute (@args);
+    if ((defined ($sth->errstr)) && (length ($sth->errstr))) {
+        die ('fatal: ' . $sth->errstr);
+    } else {
+        return (1);
+    }
+}
+
+sub eta
+{
+    my ($time) = @_;
+
+    $time += time;
+    my ($sec, $min, $hour, $day, $mon, $year) = localtime (int ($time));
+    return (sprintf ('%04d-%02d-%02d %02d:%02d:%02d', 1900 + $year, $mon + 1, $day, $hour, $min, $sec));
+}
+
+sub log
+{
+    my ($level, $msg, @args) = @_;
+    my ($sec, $min, $hour, $day, $mon, $year) = localtime (time);
+
+    printf (STDERR "%04d-%02d-%02d %02d:%02d:%02d %s $msg\n", 1900 + $year, $mon + 1, $day, $hour, $min, $sec, $level, @args);
+}
+
+sub usage
+{
+    my ($msg, @args) = @_;
+    
+    if ($msg) {
+        printf (STDERR "\n$msg\n", @args);
+    }
+    die ("usage: load_incites <-r release-num | --release=release-num>\n");
+}

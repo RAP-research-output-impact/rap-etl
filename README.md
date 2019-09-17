@@ -49,7 +49,7 @@ Update the start and end date for the time span you are interested in and increm
 
 This script can be run in parallel with [luigi](https://github.com/spotify/luigi). To do so, first start the luigi scheduler server and then run `tasks.py`. The `convert.sh` script handles this for you. Run as:
 
-`$ ./convert 5`
+`$ ./convert.sh 5`
 
 ##### Find additions and removals.
 
@@ -61,11 +61,11 @@ This script will save RDF files of additions and removals to the `staging` direc
 
 ##### Post the additions to VIVO
 
-`$ python post_rdf.py --path data/staging/5/add/*.nt`
+`$ python post_rdf.py --path data/staging/v5/add/*.nt`
 
 ##### Post the removals/deletes to VIVO
 
-`$ python post_rdf.py --delete --path data/staging/5/delete/*.nt`
+`$ python post_rdf.py --delete --path data/staging/v5/delete/*.nt`
 
 The RAP should now be updated with the latest release.
 
@@ -81,11 +81,11 @@ Run the InCites harvest using the organizations found above.
 
 Map the InCites data to RDF.
 
-`python map_metrices.py --release 5`
+`python map_metrics.py --release 5`
 
 ##### Post the additions to VIVO
 
-`$ python post_rdf.py --path data/incites/*.nt`
+`$ python post_rdf.py --path data/rdf/v5/incites-*.nt`
 
 ### Building person profiles
 Person profiles can be generated from the WOS XML. These profiles use a combination of ResearcherID, ORICD, and DAIS identifiers.

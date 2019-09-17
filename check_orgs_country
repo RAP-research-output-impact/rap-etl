@@ -1,0 +1,71 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Fatal qw(open mkdir);
+
+if (!-d 'data') {
+    mkdir ('data', 0775);
+}
+if (!-d 'data/spreadsheets') {
+    mkdir ('data/spreadsheets', 0775);
+}
+my $orgs = {};
+my $rel = sprintf ('%03d', &release ());
+warn ("using data/rdf/$rel/unified-orgs.nt\n");
+open (FIN, "data/rdf/$rel/unified-orgs.nt");
+while (<FIN>) {
+    chomp;
+    if (m/^\s*$/) {
+        next;
+    }
+    s/\s*\.\s*$//;
+    my ($org, $type, $val) = split (' ');
+    if ($type =~ m/RO_0001025/) {
+        $org =~ s/.*\///;
+        $org =~ s/>$//;
+        $val =~ s/.*\///;
+        $val =~ s/.*#//;
+        $val =~ s/>$//;
+        if (exists ($orgs->{$org})) {
+            if (!exists ($orgs->{$org}{'c'}{$val})) {
+                $orgs->{$org}{'c'}{$val} = 1;
+                $orgs->{$org}{'n'}++;
+            }
+        } else {
+            $orgs->{$org} = {n => 1, c => {$val => 1}};
+        }
+    }
+}
+close (FIN);
+open (FOU, '> data/spreadsheets/check_orgs_country.csv');
+print (FOU join ("\t", '# of countries', 'Unified org', 'Final country', 'Note', 'Countries'), "\n");
+foreach my $org (sort (keys (%{$orgs}))) {
+    if ($orgs->{$org}{'n'} > 1) {
+        print (FOU join ("\t", $orgs->{$org}{'n'}, $org, '', '', sort (keys (%{$orgs->{$org}{'c'}}))), "\n");
+    }
+}
+exit (0);
+
+sub release
+{
+    my $rel = 0;
+    if (-e 'etc/releases.dat') {
+        open (FIN, 'etc/releases.dat');
+        while (<FIN>) {
+            if (!m/^\s*#/) {
+                my ($r) = split (' ');
+                $rel = $r
+            }
+        }
+        close (FIN);
+    } else {
+        die ("fatal: no current release\n");
+    }
+    if ($rel > 0) {
+        return ($rel);
+    } else {
+        die ("fatal: no release found\n");
+    }
+}
+

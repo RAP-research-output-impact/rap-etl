@@ -1,4 +1,9 @@
-*pyc
-.env*
-.idea/*
-ontology/tmp.ttl
+*.pyc
+.env
+dtu-org-mappings-*.csv
+check_multiple_countries.csv
+devel
+arch
+.ffignore
+logs
+etc

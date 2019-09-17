@@ -1,0 +1,38 @@
+#!/usr/bin/python
+
+"""
+Harvest last update date from InCites API.
+"""
+import re
+import json
+import requests
+from lib.utils import get_env
+
+if __name__ == '__main__':
+    url = 'https://api.clarivate.com/api/incites/InCitesLastUpdated/json/'
+    headers = {'X-ApiKey': get_env('INCITES_APIKEY')}
+    r = requests.get(url, headers=headers)
+    reply = json.loads(r.text)
+    date = reply.get('api')[0].get('rval')[0].get('INCITES_DATASET_UPDATED')
+    r = re.match(r'([0-9]{2})-([0-9]{2})-([0-9]{4})', date)
+    if r:
+        date = r.group(3) + '-' + r.group(1) + '-' + r.group(2)
+    print('Last InCites update: {}'.format(date))
+    try:
+        rel = open('etc/releases.dat', 'r') 
+    except IOError:
+        raise Exception("Releases file not found: etc/releases.dat")
+    last = ''
+    for line in rel: 
+        if not re.match(r"^\s*#", line):
+            last = line
+    ele = last.split(' ')
+    if ele[4]:
+        ele = ele[4].split('/')
+        print ('Last RAP update: {}'.format(ele[0]))
+        if ele[0] > date:
+            print ('RAP is up to date')
+        else:
+            print ('RAP need to be updated')
+    else:
+        print ('RAP need to be updated')

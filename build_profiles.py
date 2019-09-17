@@ -38,9 +38,34 @@ from settings import (
     ORCID_FILE,
     RID_FILE,
     AU_ID_FILE,
-    PEOPLE_AUTHORSHIP
+    PEOPLE_AUTHORSHIP,
+    RDF_PATH
 )
 
+def profile_dir(release):
+    profiles = 'data/profiles'
+    if not os.path.exists(profiles):
+        os.mkdir(profiles)
+    profiles = 'data/profiles/{:03d}'.format(release)
+    if not os.path.exists(profiles):
+        os.mkdir(profiles)
+    return profiles
+
+def local_name(uri):
+    return uri.split('/')[-1]
+
+def save_rdf(release, graph, ng):
+    name = local_name(ng)
+    path = os.path.join(RDF_PATH, '{:03d}'.format(release), name + '.nt')
+    if os.path.isfile(path):
+        logger.info("Appending {} triples to '{}'.".format(len(graph), path))
+        file = open(path, 'a') 
+    else:
+        logger.info("Storing {} triples to '{}'.".format(len(graph), path))
+        file = open(path, 'w') 
+    file.write(graph.serialize(destination=None, format='nt'))
+    file.close()
+    return path
 
 class Researcher(object):
 
@@ -173,7 +198,7 @@ def get_existing_people():
     return out
 
 
-def build_orcid_rid_profiles():
+def build_orcid_rid_profiles(release):
     """
     Builds profiles for researchers with RIDs or ORCIDs.
     """
@@ -199,11 +224,12 @@ def build_orcid_rid_profiles():
     """
     logger.info("Author ID profiles query:\n" + q)
     vstore = backend.get_store()
-    with open(ORCID_FILE) as inf:
+    profiles = profile_dir(release)
+    with open(os.path.join(profiles, ORCID_FILE)) as inf:
         d_to_o = json.load(inf)
-    with open(RID_FILE) as inf:
+    with open(os.path.join(profiles, RID_FILE)) as inf:
         d_to_r = json.load(inf)
-    with open(AU_ID_FILE) as inf:
+    with open(os.path.join(profiles, AU_ID_FILE)) as inf:
         auid_to_dais = json.load(inf)
     existing = get_existing_people()
     done = []
@@ -245,10 +271,10 @@ def build_orcid_rid_profiles():
         elif rid is not None:
             g.add((vper.uri, VIVO.researcherId, Literal(rid)))
         g += vper.to_rdf()
-    vstore.bulk_add(PEOPLE_IDENTIFIERS_GRAPH, g)
+    save_rdf(release, g, PEOPLE_IDENTIFIERS_GRAPH)
 
 
-def build_email_profiles():
+def build_email_profiles(release):
     """
     Builds profiles for researchers with emails and a minimum number of publications.
     """
@@ -292,18 +318,20 @@ def build_email_profiles():
             logger.info("Profile exists for {}.".format(vper.uri))
             continue
         g += vper.to_rdf()
-    vstore.bulk_add(PEOPLE_EMAIL_GRAPH, g)
+#   vstore.bulk_add(PEOPLE_EMAIL_GRAPH, g)
+    save_rdf(release, g, PEOPLE_EMAIL_GRAPH)
 
 
-def build_dais_profiles():
+def build_dais_profiles(release):
     """
     Builds profiles for researchers by DAIS and a minimum number of publications.
     """
-    with open(ORCID_FILE) as inf:
+    profiles = profile_dir(release)
+    with open(os.path.join(profiles, ORCID_FILE)) as inf:
         d_to_o = json.load(inf)
-    with open(RID_FILE) as inf:
+    with open(os.path.join(profiles, RID_FILE)) as inf:
         d_to_r = json.load(inf)
-    with open(AU_ID_FILE) as inf:
+    with open(os.path.join(profiles, AU_ID_FILE)) as inf:
         auid_to_dais = json.load(inf)
     q = rq_prefixes + """
         select
@@ -324,6 +352,26 @@ def build_dais_profiles():
         }
         GROUP BY ?dais
         HAVING (?num >= 20)
+        ORDER BY DESC(?num)
+    """
+    q = rq_prefixes + """
+        select
+            (COUNT(?aship) as ?num)
+            ?dais
+            (group_concat(distinct ?fullName ; separator = "|") AS ?full_names)
+            (SAMPLE(?fullName) AS ?name)
+            (SAMPLE(?first) AS ?firstName)
+            (SAMPLE(?last) AS ?lastName)
+        where {
+            ?aship a vivo:Authorship ;
+                vivo:relates ?addr ;
+                wos:fullName ?fullName ;
+                rdfs:label ?label ;
+                wos:daisNg ?dais ;
+                wos:firstName ?first ;
+                wos:lastName ?last .
+        }
+        GROUP BY ?dais
         ORDER BY DESC(?num)
     """
     logger.info("DAIS profiles query:\n" + q)
@@ -356,46 +404,40 @@ def build_dais_profiles():
         if orcid is not None:
             g.add((vper.uri, WOS.orcid, Literal(orcid)))
         if rid is not None:
-            g.add((vper.uri, WOS.orcid, Literal(orcid)))
+            g.add((vper.uri, VIVO.researcherId, Literal(rid)))
+    save_rdf(release, g, PEOPLE_GRAPH)
 
-    vstore.sync_named_graph(PEOPLE_GRAPH, g)
 
-
-def build_unified_affiliation():
+def build_unified_affiliation(release):
     """
     Relate person entities to unified organizations.
     """
     logger.info("Adding unified affiliation.")
     vstore = backend.get_store()
-    while True:
-        q = rq_prefixes + """
-        CONSTRUCT {
-            ?person a wos:ExternalResearcher .
-            ?person wos:hasAffiliation ?unifOrg .
-        }
-        WHERE {
-            ?unifOrg a wos:UnifiedOrganization ;
-                   vivo:relatedBy ?address .
-            ?address a wos:Address ;
-                   vivo:relatedBy ?authorship ;
-                   vivo:relates ?unifOrg .
-            ?authorship a vivo:Authorship ;
-                    vivo:relates ?person .
-            ?person a foaf:Person .
-            FILTER (?unifOrg !=  d:org-technical-university-of-denmark)
-            FILTER NOT EXISTS { ?person a wos:ExternalResearcher }
-        }
-        LIMIT 500
-        """
-        logger.info("Affiliation query:\n" + q)
-        try:
-            g = vstore.query(q).graph
-            vstore.bulk_add(AFFILIATION_NG, g)
-        except ResultException:
-            break
+    q = rq_prefixes + """
+    CONSTRUCT {
+        ?person a wos:ExternalResearcher .
+        ?person wos:hasAffiliation ?unifOrg .
+    }
+    WHERE {
+        ?unifOrg a wos:UnifiedOrganization ;
+               vivo:relatedBy ?address .
+        ?address a wos:Address ;
+               vivo:relatedBy ?authorship ;
+               vivo:relates ?unifOrg .
+        ?authorship a vivo:Authorship ;
+                vivo:relates ?person .
+        ?person a foaf:Person .
+        FILTER (?unifOrg !=  d:org-technical-university-of-denmark)
+        FILTER NOT EXISTS { ?person a wos:ExternalResearcher }
+    }
+    """
+    logger.info("Affiliation query:\n" + q)
+    g = vstore.query(q).graph
+    save_rdf(release, g, AFFILIATION_NG)
 
 
-def build_dtu_people():
+def build_dtu_people(release):
     """
     Relate person entities to unified organizations.
     """
@@ -419,8 +461,7 @@ def build_dtu_people():
     logger.info("DTU people query:\n" + q)
 
     g = vstore.query(q).graph
-    vstore.bulk_add(AFFILIATION_NG, g)
-
+    save_rdf(release, g, AFFILIATION_NG)
 
 def remove_internal_external():
     """
@@ -444,15 +485,14 @@ def remove_internal_external():
         pass
 
 
-def add_authorship_links():
+def add_authorship_links(release):
     """
     Create people to authorship links.
     """
     logger.info("Adding additional authorships.")
     vstore = backend.get_store()
-    while True:
-        logger.info("Fetching people to authorship batch.")
-        q = rq_prefixes + """
+    logger.info("Fetching people to authorship batch.")
+    q = rq_prefixes + """
         CONSTRUCT {
             ?aship vivo:relates ?p .
         }
@@ -463,16 +503,10 @@ def add_authorship_links():
                 wos:daisNg ?dais .
             FILTER NOT EXISTS { ?aship vivo:relates ?p }
         }
-        LIMIT 500
-        """
-        logger.info("Authorship query:\n" + q)
-        try:
-            g = vstore.query(q).graph
-            vstore.bulk_add(PEOPLE_AUTHORSHIP, g)
-        except ResultException:
-            break
-    return True
-
+    """
+    logger.info("Authorship query:\n" + q)
+    g = vstore.query(q).graph
+    save_rdf(release, g, PEOPLE_AUTHORSHIP)
 
 def index(release):
     data_files = utils.get_release_xml_files(release)
@@ -501,7 +535,7 @@ def index(release):
             elif len(contributor_matches) == 1:
                 # Full name match on WOS full name and contributor full name.
                 au_name_key = au["full_name"]
-                cm_name_key = "{}, {}".format(contributor_matches[0]['last'], contributor_matches[0]['first'])
+                cm_name_key = "{}, {}".format(contributor_matches[0]['last'].encode('utf-8'), contributor_matches[0]['first'].encode('utf-8'))
                 orcid = contributor_matches[0]['orcid']
                 rid = contributor_matches[0]['r_id']
                 if au_name_key.lower() != cm_name_key.lower():
@@ -521,30 +555,42 @@ def index(release):
             else:
                 raise Exception("Unexpected contributor match count")
 
-    parent_dir = os.path.split(ORCID_FILE)[0]
-    if not os.path.exists(parent_dir):
-        os.mkdir(parent_dir)
-
-    with open(ORCID_FILE, 'wb') as out_file:
+    profiles = profile_dir(release)
+    with open(os.path.join(profiles, ORCID_FILE), 'wb') as out_file:
         json.dump(dais_orcid, out_file)
 
-    with open(RID_FILE, 'wb') as out_file:
+    with open(os.path.join(profiles, RID_FILE), 'wb') as out_file:
         json.dump(dais_rid, out_file)
 
-    with open(AU_ID_FILE, 'wb') as out_file:
+    with open(os.path.join(profiles, AU_ID_FILE), 'wb') as out_file:
         json.dump(au_identifier_to_dais, out_file)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Create researcher profiles.')
+    parser.add_argument('--phase', '-p', required=True, type=str, help="Valid phase are: people, id, email, authorship, affiliation, cleanup")
     parser.add_argument('--release', '-r', type=int, help="Release number")
     args = parser.parse_args()
 
-    index(args.release)
-    build_dais_profiles()
-    build_orcid_rid_profiles()
-    build_email_profiles()
-    add_authorship_links()
-    build_unified_affiliation()
-    build_dtu_people()
-    remove_internal_external()
+    utils.release(args.release)
+    if utils.RELEASE == 0:
+        raise Exception("fatal: release not found: {}".format(args.release))
+    profiles = profile_dir(utils.RELEASE)
+    if not os.path.exists(os.path.join(profiles, ORCID_FILE)):
+        index(utils.RELEASE)
+
+    if args.phase == 'people':
+        build_dais_profiles(utils.RELEASE)
+    elif args.phase == 'id':
+        build_orcid_rid_profiles(utils.RELEASE)
+    elif args.phase == 'email':
+        build_email_profiles(utils.RELEASE)
+    elif args.phase == 'authorship':
+        add_authorship_links(utils.RELEASE)
+    elif args.phase == 'affiliation':
+        build_unified_affiliation(utils.RELEASE)
+        build_dtu_people(utils.RELEASE)
+    elif args.phase == 'cleanup':
+        remove_internal_external()
+    else:       
+        logger.info('unknown phase: {}'.format(args.phase))
+

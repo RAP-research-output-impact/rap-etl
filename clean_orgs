@@ -1,0 +1,342 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Fatal qw(open rename);
+
+my $args = {};
+while ((@ARGV) && ($ARGV[0] =~ m/^-/)) {
+    my $arg = shift (@ARGV);
+    if (($arg eq '-r') || ($arg eq '--release')) {
+        $args->{'release'} = sprintf ('%03d', shift (@ARGV));
+        next;
+    }
+    warn ("fatal: unknown arg: $arg\n");
+    die ("usage: clean_orgs <--release N>\n");
+}
+if ((!exists ($args->{'release'})) || ($args->{'release'} !~ m/^[0-9]+$/)) {
+    die ("usage: clean_orgs <--release N>\n");
+}
+my $rdf = 'data/rdf/' . $args->{'release'};
+if (!-e $rdf) {
+    die ("fatal: release not found: $rdf\n");
+}
+if (!-e "$rdf/address.org") {
+    &log ('i', "moving aside original address file: address.nt to address.org");
+    rename ("$rdf/address.nt", "$rdf/address.org");
+}
+if (!-e "$rdf/suborgs.org") {
+    &log ('i', "moving aside original suborgs file: suborgs.nt to suborgs.org");
+    rename ("$rdf/suborgs.nt", "$rdf/suborgs.org");
+}
+&log ('i', "reading address.org, first pass");
+my $add = {};
+open (my $fin, "$rdf/address.org");
+while (<$fin>) {
+    chomp;
+    if (m/^\s*$/) {
+        next;
+    }
+    my ($e1, $r, $e2) = &split_nt ($_);
+    if (($e1 =~ m|^<http://rap.adm.dtu.dk/individual/addr-|) && ($r eq '<http://vivoweb.org/ontology/core#relates>') && ($e2 eq '<http://rap.adm.dtu.dk/individual/org-technical-university-of-denmark>')) {
+        if (exists ($add->{$e1})) {
+            &log ('w', "duplicate address %s", $e1);
+        }
+        $add->{$e1} = 1;
+    }
+}
+close ($fin);
+&log ('i', "reading address.org, second pass");
+my $sub = {};
+open ($fin, "$rdf/address.org");
+while (<$fin>) {
+    chomp;
+    if (m/^\s*$/) {
+        next;
+    }
+    my ($e1, $r, $e2) = &split_nt ($_);
+    if ((exists ($add->{$e1})) && ($r eq '<http://vivoweb.org/ontology/core#relates>') && ($e2 =~ m|^<http://rap.adm.dtu.dk/individual/suborg-|)) {
+        if ($sub->{$e2}) {
+            $sub->{$e2}{'count'}++;
+        } else {
+            $sub->{$e2} = {count => 1};
+        }
+    }
+}
+close ($fin);
+&log ('i', "loading department mapping:");
+my $map = {};
+for (my $n = '001'; $n < 1000; $n = sprintf ('%03d', $n + 1)) {
+    if (-e "dtu-org-mappings-$n.csv") {
+        &log ('i', "reading dtu-org-mappings-$n.csv");
+        open ($fin, "dtu-org-mappings-$n.csv");
+        while (<$fin>) {
+            chomp;
+            if ((m/^\s*$/) || (m/\s*#/)) {
+                next;
+            }
+            my ($from, $to, $occ, $who, $comment) = &split_csv ($_);
+            if ((!$to) || (!$from)) {
+                &log ('w', "incomplete line: %s", $_);
+                next;
+            }
+            if (!defined ($who)) {
+                $who = '';
+            }
+            if (!defined ($comment)) {
+                $comment = '';
+            }
+            $from = &key ($from);
+            if ((exists ($map->{$from})) && ($map->{$from}{'v'} ne $to)) {
+                if ($map->{$from}{'v'} =~ m/^(Uncategorized|DTU uncategorized|DTU department unknown)$/) {
+                    $map->{$from}{'v'} = $to;
+                    $map->{$from}{'u'} = 0;
+                    $map->{$from}{'w'} = $who;
+                    $map->{$from}{'c'} = $comment;
+                } else {
+                    &log ('w', "double mapping for %s: '%s' to '%s'", $from, $map->{$from}{'v'}, $to);
+                    $map->{$from}{'v'} = $to;
+                    $map->{$from}{'u'} = 0;
+                    $map->{$from}{'w'} = $who;
+                    $map->{$from}{'c'} = $comment;
+                    my $kto = &key ($to);
+                    if ((exists ($map->{$kto})) && ($map->{$kto}{'v'} ne $to)) {
+                        &log ('w', "removing conflicting mapping '%s' to '%s'", $kto, $map->{$kto}{'v'});
+                        delete ($map->{$kto});
+                    }
+                }
+            } else {
+                $map->{$from}{'v'} = $to;
+                $map->{$from}{'u'} = 0;
+                $map->{$from}{'w'} = $who;
+                $map->{$from}{'c'} = $comment;
+            }
+        }
+        close ($fin);
+    }
+}
+my $done = {};
+foreach my $key (keys (%{$map})) {
+    my $val = $map->{$key}{'v'};
+    my $kva = &key ($val);
+    if ((exists ($map->{$kva})) && ($val ne $map->{$kva}{'v'})) {
+        if (!exists ($done->{$val}{$map->{$kva}{'v'}})) {
+            &log ('i', "super mapping '%s' to '%s'", $val, $map->{$kva}{'v'});
+            $done->{$val}{$map->{$kva}{'v'}} = 1;
+        }
+        $map->{$key}{'v'} = $map->{$kva}{'v'};
+        if ($map->{$key}{'c'}) {
+            $map->{$key}{'c'} .= "; Overwritten from '$val'";
+        } else {
+            $map->{$key}{'c'} = "Overwritten from '$val'";
+        }
+    }
+}
+&log ('i', "reading suborgs.org");
+open ($fin, "$rdf/suborgs.org");
+while (<$fin>) {
+    chomp;
+    if (m/^\s*$/) {
+        next;
+    }
+    my ($e1, $r, $e2) = &split_nt ($_);
+    if (($sub->{$e1}) && ($r eq '<http://webofscience.com/ontology/wos#subOrganizationName>')) {
+        if (($map->{&key ($e2)}) && ($map->{&key ($e2)}{'v'})) {
+            $sub->{$e1}{'name'} = $map->{&key ($e2)}{'v'};
+            $map->{&key ($e2)}{'u'} += $sub->{$e1}{'count'};
+            $sub->{$e1}{'var'}{&key ($e2)} = $e2;
+            my $id = &key ($sub->{$e1}{'name'});
+            $id =~ s/\s+/-/g;
+            $sub->{$e1}{'id'} = '<http://rap.adm.dtu.dk/individual/dtusuborg-' . $id . '>';
+        } else {
+#           warn ("unmapped sub-org: $e2\n");
+            if ($map->{&key ($e2)}) {
+                $map->{&key ($e2)}{'u'} += $sub->{$e1}{'count'};
+            } else {
+                $map->{&key ($e2)}{'u'} = $sub->{$e1}{'count'};
+                $map->{&key ($e2)}{'v'} = '';
+                $map->{&key ($e2)}{'w'} = '';
+                $map->{&key ($e2)}{'c'} = '';
+            }
+        }
+    }
+}
+close ($fin);
+&log ('i', "writing current and new mapping (dtu-org-mappings-cur.csv and dtu-org-mappings-new.csv)");
+open (my $fou, '> dtu-org-mappings-cur.csv');
+print ($fou join ("\t", 'WoS Department', 'DTU Department', 'Used', 'Who', 'Comment'), "\n");
+foreach my $key (sort (keys (%{$map}))) {
+    if ($map->{$key}{'v'}) {
+        print ($fou join ("\t", $key, $map->{$key}{'v'}, $map->{$key}{'u'}, $map->{$key}{'w'}, $map->{$key}{'c'}), "\n");
+    }
+}
+close ($fou);
+open ($fou, '> dtu-org-mappings-new.csv');
+print ($fou join ("\t", 'WoS Department', 'DTU Department', 'Used', 'Who', 'Comment'), "\n");
+foreach my $key (sort {$map->{$b}{'u'} <=> $map->{$a}{'u'}} keys (%{$map})) {
+    if (!$map->{$key}{'v'}) {
+        print ($fou join ("\t", $key, $map->{$key}{'v'}, $map->{$key}{'u'}, $map->{$key}{'w'}, $map->{$key}{'c'}), "\n");
+    }
+}
+close ($fou);
+&log ('i', "writing $rdf/clean-suborgs.nt");
+open ($fou, "> $rdf/clean-suborgs.nt");
+my $new = {};
+foreach my $id (keys (%{$sub})) {
+    if (exists ($sub->{$id}{'id'})) {
+        $new->{$sub->{$id}{'id'}}{'name'} = $sub->{$id}{'name'};
+        foreach my $v (keys (%{$sub->{$id}{'var'}})) {
+            $new->{$sub->{$id}{'id'}}{'var'}{$v} = $sub->{$id}{'var'}{$v};
+        }
+    }
+}
+foreach my $id (keys (%{$new})) {
+    &printOrg ($fou, $new, $id);
+}
+close ($fou);
+&log ('i', "writing $rdf/suborgs.nt");
+open ($fin, "$rdf/suborgs.org");
+open ($fou, "> $rdf/suborgs.nt");
+while (<$fin>) {
+    chomp;
+    if (m/^\s*$/) {
+        next;
+    }
+    my ($e1, $r, $e2) = &split_nt ($_);
+    if (!exists ($sub->{$e1}{'id'})) {
+        print ($fou $_, "\n");
+    }
+}
+close ($fou);
+close ($fin);
+
+&log ('i', "reading address.org, finding double sub-orgs");
+my $hvso = {};
+open ($fin, "$rdf/address.org");
+while (<$fin>) {
+    chomp;
+    if (m/^\s*$/) {
+        next;
+    }
+    my ($e1, $r, $e2) = &split_nt ($_);
+    if ((exists ($add->{$e1})) && ($r eq '<http://vivoweb.org/ontology/core#relates>') && ($e2 =~ m|/suborg-|) && (exists ($sub->{$e2}{'id'}))) {
+        if ($sub->{$e2}{'id'} !~ m/dtusuborg-dtu-department-unknown/) {
+            $hvso->{$e1} = 1;
+        }
+    } else {
+    }
+}
+close ($fin);
+
+&log ('i', "writing $rdf/address.nt");
+open ($fin, "$rdf/address.org");
+open ($fou, "> $rdf/address.nt");
+while (<$fin>) {
+    chomp;
+    if (m/^\s*$/) {
+        next;
+    }
+    my ($e1, $r, $e2) = &split_nt ($_);
+    if ((exists ($add->{$e1})) && ($r eq '<http://vivoweb.org/ontology/core#relates>') && (exists ($sub->{$e2}{'id'}))) {
+        if ((!exists ($hvso->{$e1})) || ($sub->{$e2}{'id'} !~ m/dtusuborg-dtu-department-unknown/)) {
+            print ($fou $e1, ' <http://vivoweb.org/ontology/core#relates> ', $sub->{$e2}{'id'}, " .\n");
+        }
+    } else {
+        print ($fou $_, "\n");
+    }
+}
+close ($fou);
+close ($fin);
+
+exit (0);
+
+sub printOrg
+{
+    my ($fou, $sub, $id) = @_;
+
+    print ($fou $id, " <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://webofscience.com/ontology/wos#SubOrganization> .\n");
+    print ($fou $id, ' <http://www.w3.org/2000/01/rdf-schema#label> "', $sub->{$id}{'name'}, "\" .\n");
+    print ($fou $id, ' <http://webofscience.com/ontology/wos#subOrganizationName> "', $sub->{$id}{'name'}, "\" .\n");
+    foreach my $v (sort (keys (%{$sub->{$id}{'var'}}))) {
+        print ($fou $id, ' <http://webofscience.com/ontology/wos#subOrganizationNameVariant> "', $sub->{$id}{'var'}{$v}, "\" .\n");
+    }
+}
+
+sub key
+{
+    my ($txt) = @_;
+
+    $txt = lc ($txt);
+    $txt =~ s/[^0-9a-z]+/ /g;
+    $txt =~ s/^\s//;
+    $txt =~ s/\s$//;
+    return ($txt);
+}
+
+sub split_nt
+{
+    my ($nt) = @_;
+
+    my ($e1, $r, $e2, @ex) = split (' ', $nt);
+    while (($e2 =~ m/^"/) && (($e2 !~ m/"$/) || ($e2 =~ m/\\"$/))) {
+        $e2 .= ' ' . shift (@ex);
+        if (!@ex) {
+            die ("fatal: malformed NT line, missing end quote: $nt\n");
+        }
+    }
+    if ($ex[0] ne '.') {
+        die ("fatal: malformed NT line, missing dot: $nt\n");
+    }
+    $e2 =~ s/^"//;
+    $e2 =~ s/"$//;
+    return ($e1, $r, $e2);
+}
+
+sub split_csv
+{
+    my ($csv) = @_;
+
+    my ($e1, $e2, @ex) = split ("\t", $csv);
+    while (($e1 =~ m/^"/) && ($e1 !~ m/"$/)) {
+        $e1 .= "\t" . $e2;
+        if (!@ex) {
+            die ("fatal: cannot find end quote: $csv");
+        }
+        $e2 = shift (@ex);
+    }
+    $e1 =~ s/^\s+//;
+    $e1 =~ s/\s+$//;
+    $e2 =~ s/^\s+//;
+    $e2 =~ s/\s+$//;
+    return ($e1, $e2, @ex);
+}
+
+sub log
+{
+    my ($level, $msg, @args) = @_;
+    my ($sec, $min, $hour, $day, $mon, $year) = localtime (time);
+    printf ("%04d-%02d-%02d %02d:%02d:%02d %s $msg\n", 1900 + $year, $mon + 1, $day, $hour, $min, $sec, $level, @args);
+}
+
+__END__
+data/rdf/suborgs.nt:<http://rap.adm.dtu.dk/individual/suborg-d45225e415c38403ff914d226159231e> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://webofscience.com/ontology/wos#SubOrganization> .
+data/rdf/suborgs.nt:<http://rap.adm.dtu.dk/individual/suborg-d45225e415c38403ff914d226159231e> <http://webofscience.com/ontology/wos#subOrganizationName> "Hevesy Lab" .
+data/rdf/suborgs.nt:<http://rap.adm.dtu.dk/individual/suborg-d45225e415c38403ff914d226159231e> <http://www.w3.org/2000/01/rdf-schema#label> "Hevesy Lab, Tech Univ Denmark" .
+data/rdf/suborgs.nt:<http://rap.adm.dtu.dk/individual/suborg-d45225e415c38403ff914d226159231e> <http://webofscience.com/ontology/wos#organizationName> "Tech Univ Denmark" .
+
+data/rdf/unified-orgs.nt:<http://rap.adm.dtu.dk/individual/org-technical-university-of-denmark> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://webofscience.com/ontology/wos#UnifiedOrganization> .
+data/rdf/unified-orgs.nt:<http://rap.adm.dtu.dk/individual/org-technical-university-of-denmark> <http://www.w3.org/2000/01/rdf-schema#label> "Technical University of Denmark" .
+
+<http://rap.adm.dtu.dk/individual/dtusuborg-dtu-food> a ns2:SubOrganization ;
+    rdfs:label "DTU Food" ;
+    ns2:subOrganizationName "DTU Food" ;
+    ns2:subOrganizationNameVariant "DTU Food",
+        "Div Diet Dis prevent & Toxicol",
+        "Nanobiosci Res Grp",
+        "Natl Food Inst DTU",
+        "Natl Food Inst DTU FOOD",
+        "Natl Food Inst Denmark",
+        "Natl Food Inst Technol",
+        "Natl Inst Food DTU Food",
+        "Natl Inst Food Safety" .
+

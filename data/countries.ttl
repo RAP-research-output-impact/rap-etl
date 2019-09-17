@@ -7,31 +7,15 @@
 @prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
 @prefix d: <http://rap.adm.dtu.dk/individual/> .
 
-d:country-taiwan a vivo:Country ;
-    rdfs:label "Taiwan"^^xsd:string ;
-    geo:codeISO3 "TWN"^^xsd:string .
-
-
-d:country-bolivia a vivo:Country ;
-    rdfs:label "Bolivia"^^xsd:string ;
-    geo:codeISO3 "BOL"^^xsd:string .
+d:country-greenland a vivo:Country ;
+    rdfs:label "Greenland"^^xsd:string ;
+    geo:codeISO3 "GRL"^^xsd:string .
 
 d:country-macedonia a vivo:Country ;
     rdfs:label "Macedonia"^^xsd:string ;
     geo:codeISO3 "MKD"^^xsd:string .
 
-d:country-ivory-coast a vivo:Country ;
-    rdfs:label "Ivory Coast"^^xsd:string ;
-    geo:codeISO3 "CIV"^^xsd:string .
+d:country-taiwan a vivo:Country ;
+    rdfs:label "Taiwan"^^xsd:string ;
+    geo:codeISO3 "TWN"^^xsd:string .
 
-d:country-bermuda a vivo:Country ;
-    rdfs:label "Bermuda"^^xsd:string ;
-    geo:codeISO3 "BMU"^^xsd:string .
-
-d:country-moldova a vivo:Country ;
-    rdfs:label "Moldova"^^xsd:string ;
-    geo:codeISO3 "MDA"^^xsd:string .
-
-d:country-reunion a vivo:Country ;
-    rdfs:label "Reunion"^^xsd:string ;
-    geo:codeISO3 "REU"^^xsd:string .

@@ -15,7 +15,7 @@ def get_logger():
     )
     # File handler and formatting.
     handler = logging.handlers.RotatingFileHandler(
-        "data/etl.log",
+        "logs/etl.log",
         maxBytes=10*1024*1024,
         backupCount=5,
     )

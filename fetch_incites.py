@@ -15,16 +15,23 @@ import requests
 import settings
 from settings import logger
 from lib.utils import get_env, get_incites_base_path, get_incites_output_path
+from lib import utils
 
 from map_metrics import get_unified_orgs
 
+base_url = 'https://incites.clarivate.com/incites-app/'
+"""
 base_url = 'https://incites.thomsonreuters.com/incites-app/'
+            https://incites.clarivate.com/incites-app/explore/0/organization/data/table/page
+            url = base_url + 'explore/0/organization/data/trend/page'
+            url = base_url +  explore/0/subject/data/table/page"
+"""
 
 
 def get_start_stop(release):
-    d = settings.DATA_RELEASE[release]
-    start = int(d['start'].split('-')[0])
-    stop = int(d['end'].split('-')[0])
+    start = int(utils.RELEASE_FROM.split('-')[0])
+    stop = int(utils.RELEASE_TO.split('-')[0])
+    logger.info("get_start_stop (start: {}, stop: {})".format(start, stop))
     return start, stop
 
 
@@ -36,7 +43,8 @@ class InCites(object):
     def login(self):
         s = requests.Session()
         payload = {'username': get_env('INCITES_USER'), 'password': get_env('INCITES_PASSWORD'), 'IPStatus': 'IPValid'}
-        s.post('https://login.incites.thomsonreuters.com/?DestApp=IC2&locale=en_US&A%autoreload 2lias=IC2', data=payload)
+        s.post('https://login.incites.clarivate.com/?DestApp=IC2&locale=en_US&Autoreload&Alias=IC2', data=payload)
+#       s.post('https://login.incites.thomsonreuters.com/?DestApp=IC2&locale=en_US&Autoreload&Alias=IC2', data=payload)
         self.session = s
 
     def logout(self):
@@ -52,7 +60,9 @@ class InCites(object):
 
     def docs_citations_by_year(self, org, start, stop):
         url = base_url + 'explore/0/organization/data/trend/page'
+        logger.info("docs_citations_by_year (start: {}, stop: {}, url: {})".format(start, stop, url))
         payload = {
+            "queryDataCollection": "ESCI",
             "take": 500,
             "skip": 0,
             "sortBy": "timesCited",
@@ -69,6 +79,11 @@ class InCites(object):
             "indicators": [
                 "wosDocuments",
                 "timesCited",
+                "norm",
+                "prcntDocsIn90",
+                "prcntDocsIn99",
+                "prcntIndCollab",
+                "prcntIntCollab",
                 "key",
                 "seqNumber"
             ]
@@ -77,12 +92,23 @@ class InCites(object):
         items = rsp['items']
         cites = []
         docs = []
+        impact = []
+        top10 = []
+        top1 = []
+        collind = []
+        collint = []
         for item in items:
             docs.append({"count": item['wosDocuments'], 'year': item['year']})
             cites.append({"count": item['timesCited'], 'year': item['year']})
-        return docs, cites
+            impact.append({"count": item['norm'], 'year': item['year']})
+            top10.append({"count": item['prcntDocsIn90'], 'year': item['year']})
+            top1.append({"count": item['prcntDocsIn99'], 'year': item['year']})
+            collind.append({"count": item['prcntIndCollab'], 'year': item['year']})
+            collint.append({"count": item['prcntIntCollab'], 'year': item['year']})
+        return docs, cites, impact, top10, top1, collind, collint
 
     def categories_by_year(self, org, start, stop):
+        logger.info("categories_by_year (start: {}, stop: {})".format(start, stop))
         out = defaultdict(list)
         url = base_url + "explore/0/subject/data/table/page"
         for year in range(start, stop + 1):
@@ -127,19 +153,40 @@ class InCites(object):
 
 def get_org(args):
     release, ic, oid, name, start, stop = args
-    logger.info("Processing InCites for release v{} and {} {}.".format(release, oid, name))
+    logger.info("get_org (start: {}, stop: {})".format(start, stop))
+    logger.info("Processing InCites for release {} and {} {}.".format(release, oid, name))
     cats_out = get_incites_output_path(release, "categories-by-year", oid)
     docs_out = get_incites_output_path(release, 'total', oid)
     cites_out = get_incites_output_path(release, 'cites', oid)
+    impact_out = get_incites_output_path(release, 'impact', oid)
+    top10_out = get_incites_output_path(release, 'top10', oid)
+    top1_out = get_incites_output_path(release, 'top1', oid)
+    collind_out = get_incites_output_path(release, 'collind', oid)
+    collint_out = get_incites_output_path(release, 'collint', oid)
 
     if (not os.path.exists(cites_out) or (not os.path.exists(docs_out))):
-        docs, cites = ic.docs_citations_by_year(name, start, stop)
+        docs, cites, impact, top10, top1, collind, collint = ic.docs_citations_by_year(name, start, stop)
 
         with open(docs_out, "wb") as of:
             json.dump(docs, of)
 
         with open(cites_out, "wb") as of:
             json.dump(cites, of)
+
+        with open(impact_out, "wb") as of:
+            json.dump(impact, of)
+
+        with open(top10_out, "wb") as of:
+            json.dump(top10, of)
+
+        with open(top1_out, "wb") as of:
+            json.dump(top1, of)
+
+        with open(collind_out, "wb") as of:
+            json.dump(collind, of)
+
+        with open(collint_out, "wb") as of:
+            json.dump(collint, of)
     else:
         logger.info("Either cites or total file exists for {}. Skipping".format(name))
 
@@ -156,6 +203,7 @@ def get_org(args):
 
 def main(release):
     start, stop = get_start_stop(release)
+    logger.info("main (start: {}, stop: {})".format(start, stop))
     logger.info("Setting up InCites connection.")
     ic = InCites()
     ic.login()
@@ -171,4 +219,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Fetch Incites Data')
     parser.add_argument("--release", type=int)
     args = parser.parse_args()
-    main(args.release)
+    utils.release(args.release)
+    if utils.RELEASE == 0:
+        raise Exception("fatal: release not found: {}".format(args.release))
+    main(utils.RELEASE)

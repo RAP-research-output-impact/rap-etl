@@ -1,0 +1,603 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Fatal qw(open mkdir unlink rename);
+use Time::HiRes qw(gettimeofday);
+
+$ENV{'PYTHONWARNINGS'} = 'ignore';
+
+my $comm;
+if (@ARGV) {
+    $comm = &map_comm (@ARGV);
+} else {
+    &usage ();
+}
+if ($comm eq 'check-update') {
+    system ('./incites_last_update');
+    exit (0);
+}
+if ($comm eq 'new-release') {
+    my $from;
+    while (!$from) {
+        print ("start: [2007-01-01] ");
+        $from = <STDIN>;
+        $from =~ s/[^-0-9]//g;
+        if ($from eq '') {
+            $from = '2007-01-01';
+        } else {
+            my ($year, $mon, $day) = split ('-', $from);
+            if ($year =~ m/^[0-9]{4}$/) {
+                if (!$mon) {
+                    $mon = 1;
+                }
+                if (!$day) {
+                    $day = 1;
+                }
+                $from = sprintf ('%04d-%02d-%02d', $year, $mon, $day);
+            } else {
+                $from = '';
+            }
+        }
+    }
+    my $to;
+    my ($sec, $min, $hour, $day, $mon, $year) = localtime (time);
+    my $today = sprintf ('%04d-%02d-%02d', 1900 + $year, $mon + 1, $day);
+    while (!$to) {
+        print ("to:    [$today] ");
+        $to = <STDIN>;
+        $to =~ s/[^-0-9]//g;
+        if ($to eq '') {
+            $to = $today;
+        } else {
+            my ($year, $mon, $day) = split ('-', $to);
+            if ($year =~ m/^[0-9]{4}$/) {
+                if (!$mon) {
+                    $mon = 12;
+                }
+                if (!$day) {
+                    $day = 31;
+                }
+                $to = sprintf ('%04d-%02d-%02d', $year, $mon, $day);
+            } else {
+                $to = '';
+            }
+        }
+    }
+    my $release = 0;
+    if (-e 'etc/releases.dat') {
+        open (FIN, 'etc/releases.dat');
+        while (<FIN>) {
+            chomp;
+            my ($rel, $f, $t) = split (' ');
+            $release = $rel;
+        }
+        close (FIN);
+    }
+    $release++;
+    if (-e 'etc/releases.dat') {
+        open (FOU, '>> etc/releases.dat');
+    } else {
+        if (!-e 'etc') {
+            mkdir ('etc', 0775);
+        }
+        open (FOU, '> etc/releases.dat');
+        printf (FOU "%-3s %-10s %-10s %-19s %-19s\n", '#', 'From', 'To', 'Fetch-pubs', 'Fetch-incites');
+        printf (FOU "%-3s %-10s %-10s %-19s %-19s\n", '#--', '-' x 10, '-' x 10, '-' x 19, '-' x 19);
+    }
+    printf (FOU "%03d %s %s\n", $release, $from, $to);
+    close (FOU);
+    printf (STDERR "added release %d : %s - %s\n", $release, $from, $to);
+    $release = sprintf ('%03d', $release);
+    foreach my $dir ('data/staging', 'data/profiles', 'data/incites', 'data/pubs', 'data/rdf', 'logs') {
+        if (-e "$dir/$release") {
+            warn ("warning: $dir/$release already exists!\n");
+        } else {
+            mkdir ("$dir/$release", 0775);
+        }
+    }
+    exit (0);
+}
+if ($comm eq 'releases') {
+    if (-e 'etc/releases.dat') {
+        open (FIN, 'etc/releases.dat');
+        while (<FIN>) {
+            chomp;
+            my ($r, $f, $t) = split (' ');
+            print (join ("\t", $r, $f, $t), "\n");
+        }
+        close (FIN);
+    } else {
+        warn ("no current release\n");
+    }
+    exit (0);
+}
+if ($comm eq 'pubs-harvest') {
+    &env ();
+    my $log = &log ('fetch_pubs_xml');
+    my $sta = &log_start ($log);
+    system ("python fetch_pubs_xml.py 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    &update_releases ('pub');
+    exit (0);
+}
+if ($comm eq 'pubs-convert') {
+    &env ();
+    my $log = &log ('convert');
+    my $sta = &log_start ($log);
+    system ("./convert.sh 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    exit (0);
+}
+if ($comm eq 'pubs-clean-orgs') {
+    &env ();
+    my $log = &log ('clean_orgs');
+    my $sta = &log_start ($log);
+    my $rel = &release ();
+    system ("./clean_orgs -r $rel 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    exit (0);
+}
+if ($comm eq 'pubs-orgs-country') {
+    &env ();
+    my $log = &log ('orgs-country');
+    my $sta = &log_start ($log);
+    my $rel = &release ();
+    system ("./check_orgs_country -r $rel 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    exit (0);
+}
+if ($comm eq 'pubs-diff') {
+    &env ();
+    my $log = &log ('pubs-diff');
+    my $sta = &log_start ($log);
+    my $rel = &release ();
+    foreach my $file ('address', 'author-keywords', 'authorship', 'categories-pubs', 'clean-suborgs', 'grants', 'keywords-plus', 'pubs', 'suborgs', 'unified-orgs', 'venues') {
+        &rdf_diff ($rel, $log, $file);
+    }
+    &log_end ($log, $sta);
+    exit (0);
+}
+if ($comm eq 'pubs-load') {
+    &env ();
+    my $rel = &release ();
+    my $log = &log ('load-pub-del');
+    my $sta = &log_start ($log);
+    system ("python post_rdf.py --delete --path data/staging/$rel/del/*.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    $log = &log ('load-pub-add');
+    $sta = &log_start ($log);
+    system ("python post_rdf.py --path data/staging/$rel/add/*.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    exit (0);
+}
+if ($comm eq 'incites-harvest') {
+    &env ();
+    my $log = &log ('incites-harvest');
+    my $sta = &log_start ($log);
+    system ("python fetch_incites.py 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    &update_releases ('incites');
+    exit (0);
+}
+if ($comm eq 'incites-process') {
+    &env ();
+    my $log = &log ('incites-process');
+    system ("python map_metrics.py 2>&1 | tee $log");
+    exit (0);
+}
+if ($comm eq 'incites-diff') {
+    &env ();
+    my $log = &log ('incites-diff');
+    my $rel = &release ();
+    foreach my $file ('incites-pub-year-counts', 'incites-top-categories', 'incites-total-cites-year-counts') {
+        &rdf_diff ($rel, $log, $file);
+    }
+    exit (0);
+}
+if ($comm eq 'incites-check') {
+    &env ();
+    my $rel = &release ();
+    my $log = &log ('incites-check');
+    my $sta = &log_start ($log);
+    system ("./incites_check -r $rel 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    exit (0);
+}
+if ($comm eq 'incites-clean') {
+    &env ();
+    my $rel = &release ();
+    my $log = &log ('incites-clean');
+    my $sta = &log_start ($log);
+    system ("./incites_check -r $rel --delete 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    exit (0);
+}
+if ($comm eq 'incites-load') {
+    &env ();
+    my $rel = &release ();
+    my $log = &log ('incites-load');
+    my $sta = &log_start ($log);
+    system ("./incites_load -r $rel 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    exit (0);
+}
+if ($comm eq 'people-process') {
+    &env ();
+    my $mlog = &log ('people-process-0-all');
+    my $msta = &log_start ($mlog);
+    my $rel = &release ();
+    my $log = &log ('people-process-1-people');
+    my $sta = &log_start ($log);
+    system ("python build_profiles.py --phase people 2>&1 | tee -a $log");
+    system ("python post_rdf.py --path data/rdf/$rel/people.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+
+    $log = &log ('people-process-2-identifiers');
+    $sta = &log_start ($log);
+    system ("python build_profiles.py --phase id 2>&1 | tee -a $log");
+    system ("python post_rdf.py --path data/rdf/$rel/people-identifiers.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+
+    $log = &log ('people-process-3-email');
+    $sta = &log_start ($log);
+    system ("python build_profiles.py --phase email 2>&1 | tee -a $log");
+    system ("python post_rdf.py --path data/rdf/$rel/people-email.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+
+    $log = &log ('people-process-4-authorship');
+    $sta = &log_start ($log);
+    system ("python build_profiles.py --phase authorship 2>&1 | tee -a $log");
+    system ("python post_rdf.py --path data/rdf/$rel/people-authorship.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+
+    $log = &log ('people-process-5-affiliation');
+    $sta = &log_start ($log);
+    system ("python build_profiles.py --phase affiliation 2>&1 | tee -a $log");
+    system ("python post_rdf.py --path data/rdf/$rel/people-affiliation.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+
+    $log = &log ('people-process-6-cleanup');
+    $sta = &log_start ($log);
+    system ("python build_profiles.py --phase cleanup 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    &log_end ($mlog, $msta);
+    exit (0);
+}
+if ($comm eq 'data-enhance') {
+    &env ();
+    my $log = &log ('data-enhance');
+    my $sta = &log_start ($log);
+    my $rel = &release ();
+    system ("python address_add_country.py --release $rel 2>&1 | tee -a $log");
+    &rdf_diff ($rel, $log, 'address-country');
+    system ("python post_rdf.py --delete --path data/staging/$rel/del/address-country.nt 2>&1 | tee -a $log");
+    system ("python post_rdf.py --path data/staging/$rel/add/address-country.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    exit (0);
+}
+if ($comm eq 'people-process-old') {
+    &env ();
+    my $mlog = &log ('people-process-0-all');
+    my $msta = &log_start ($mlog);
+    my $rel = &release ();
+    my $pel = sprintf ('%03d', ($rel - 1));
+    my $log = &log ('people-process-1-people');
+    my $sta = &log_start ($log);
+    system ("python build_profiles.py --phase people 2>&1 | tee -a $log");
+    &rdf_diff ($rel, $log, 'people');
+    system ("python post_rdf.py --delete --path data/staging/$rel/del/people.nt 2>&1 | tee -a $log");
+    system ("python post_rdf.py --path data/staging/$rel/add/people.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+
+    $log = &log ('people-process-2-identifiers');
+    $sta = &log_start ($log);
+    system ("python build_profiles.py --phase id 2>&1 | tee -a $log");
+    &rdf_diff ($rel, $log, 'people-identifiers');
+    system ("python post_rdf.py --delete --path data/staging/$rel/del/people-identifiers.nt 2>&1 | tee -a $log");
+    system ("python post_rdf.py --path data/staging/$rel/add/people-identifiers.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+
+    $log = &log ('people-process-3-email');
+    $sta = &log_start ($log);
+    system ("python build_profiles.py --phase email 2>&1 | tee -a $log");
+    &rdf_diff ($rel, $log, 'people-email');
+    system ("python post_rdf.py --delete --path data/staging/$rel/del/people-email.nt 2>&1 | tee -a $log");
+    system ("python post_rdf.py --path data/staging/$rel/add/people-email.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+
+    $log = &log ('people-process-4-authorship');
+    $sta = &log_start ($log);
+    system ("python build_profiles.py --phase authorship 2>&1 | tee -a $log");
+    &rdf_diff ($rel, $log, 'people-authorship');
+    system ("python post_rdf.py --delete --path data/staging/$rel/del/people-authorship.nt 2>&1 | tee -a $log");
+    system ("python post_rdf.py --path data/staging/$rel/add/people-authorship.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+
+    $log = &log ('people-process-5-affiliation');
+    $sta = &log_start ($log);
+    system ("python build_profiles.py --phase affiliation 2>&1 | tee -a $log");
+    &rdf_diff ($rel, $log, 'people-affiliation');
+    system ("python post_rdf.py --delete --path data/staging/$rel/del/people-affiliation.nt 2>&1 | tee -a $log");
+    system ("python post_rdf.py --path data/staging/$rel/add/people-affiliation.nt 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+
+    $log = &log ('people-process-6-cleanup');
+    $sta = &log_start ($log);
+    system ("python build_profiles.py --phase cleanup 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    &log_end ($mlog, $msta);
+    exit (0);
+}
+if ($comm eq 'cache-refresh') {
+    &env ();
+    my $rel = &release ();
+    my $log = &log ('cache-refresh');
+    my $sta = &log_start ($log);
+    system ("./cache-refresh --keep 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    exit (0);
+}
+if ($comm eq 'cache-reset') {
+    &env ();
+    my $rel = &release ();
+    my $log = &log ('cache-reset');
+    my $sta = &log_start ($log);
+    system ("sudo ./cache-refresh 2>&1 | tee -a $log");
+    &log_end ($log, $sta);
+    exit (0);
+}
+die ("fatal: command not implemented: $comm\n");
+
+sub rdf_diff
+{
+    my ($rel, $log, $file) = @_;
+
+    my $pel = sprintf ('%03d', ($rel - 1));
+    if (-e "data/rdf/$pel") {
+        system ("./rdf_diff data/rdf/$pel/$file.nt data/rdf/$rel/$file.nt 2>&1 | tee -a $log");
+    } else {
+        if (!-e "data/staging/$rel/add") {
+            system ("mkdir -p data/staging/$rel/add");
+        }
+        system ("cp data/rdf/$rel/$file.nt data/staging/$rel/add/");
+    }
+}
+
+sub update_releases
+{
+    my ($type) = @_;
+
+    if (!-e 'etc/releases.dat') {
+        die ("fatal: releases not found: 'etc/releases.dat'");
+    }
+    if (-e 'etc/releases.bck') {
+        unlink ('etc/releases.bck');
+    }
+    rename ('etc/releases.dat', 'etc/releases.bck');
+    open (FIN, 'etc/releases.bck');
+    open (FOU, '> etc/releases.dat');
+    my $line;
+    while (<FIN>) {
+        if ($line) {
+            print (FOU $line);
+        }
+        $line = $_;
+    }
+    chomp ($line);
+    my ($rel, $from, $to, $pub, $inc) = split (' ', $line);
+    if (($type eq 'pub') && ($pub)) {
+        warn ("warning: failed to update release $rel, pub date already defined");
+        print (FOU join (' ', $rel, $from, $to, $pub, $inc), "\n");
+    } else {
+        if (($type eq 'incites') && ($inc)) {
+#           warn ("warning: failed to update release $rel, all dates already defined");
+            print (FOU join (' ', $rel, $from, $to, $pub, $inc), "\n");
+        } else {
+            if ($type eq 'pub') {
+                print (FOU join (' ', $rel, $from, $to, &dateTime ()), "\n");
+            } else {
+                print (FOU join (' ', $rel, $from, $to, $pub, &dateTime ()), "\n");
+            }
+        }
+    }
+    close (FOU);
+    close (FIN);
+}
+
+sub dateTime
+{
+    my ($sec, $min, $hour, $day, $mon, $year) = localtime (time);
+
+    return (sprintf ('%04d-%02d-%02d/%02d:%02d:%02d', 1900 + $year, $mon + 1, $day, $hour, $min, $sec));
+}
+
+sub env
+{
+    if (!-e '.env') {
+        die ("fatal: cannot find .env\n");
+    }
+    open (FIN, '.env');
+    while (<FIN>) {
+        chomp;
+        if (m/^\s*$/) {
+            next;
+        }
+        if (m/export ([_A-Z]+)\s*=\s*['"](.*?)["']/) {
+            $ENV{$1} = $2;
+#           warn ("debug: env setting $1 = '$2'\n");
+            next;
+        }
+        if (m/export ([_A-Z]+)\s*=\s*([^\s]+)/) {
+            $ENV{$1} = $2;
+#           warn ("debug: env setting $1 = '$2'\n");
+            next;
+        }
+        die ("fatal: unparsed .env line: $_\n");
+    }
+    close (FIN);
+}
+
+sub release
+{
+    my $rel = 0;
+    if (-e 'etc/releases.dat') {
+        open (FIN, 'etc/releases.dat');
+        while (<FIN>) {
+            if (!m/^\s*#/) {
+                my ($r) = split (' ');
+                $rel = $r
+            }
+        }
+        close (FIN);
+    } else {
+        die ("fatal: no current release\n");
+    }
+    if ($rel > 0) {
+        return ($rel);
+    } else {
+        die ("fatal: no release found\n");
+    }
+}
+
+sub log
+{
+    my ($name) = @_;
+
+    my $rel = &release ();
+    if (!-e "logs/$rel") {
+        mkdir ("logs/$rel", 0775);
+    }
+    my $n = '01';
+    while (-e "logs/$rel/$name-$n.log") {
+        $n = sprintf ('%02d', ($n + 1));
+    }
+    return ("logs/$rel/$name-$n.log");
+}
+
+sub log_start
+{
+    my ($log) = @_;
+
+    my ($time, $msec) = gettimeofday();
+    my ($sec, $min, $hour, $day, $mon, $year) = localtime ($time);
+    open (my $flog, "> $log");
+    printf($flog "[%04d-%02d-%02d %02d:%02d:%02d,%03.0f] start\n", 1900 + $year, $mon + 1, $day, $hour, $min, $sec, ($msec / 1000));
+    close ($flog);
+    printf(STDERR "[%04d-%02d-%02d %02d:%02d:%02d,%03.0f] start\n", 1900 + $year, $mon + 1, $day, $hour, $min, $sec, ($msec / 1000));
+    return ($time);
+}
+
+sub log_end
+{
+    my ($log, $start) = @_;
+
+    my ($time, $msec) = gettimeofday();
+    my ($sec, $min, $hour, $day, $mon, $year) = localtime ($time);
+    open (my $flog, ">> $log");
+    my $elapse = $time - $start;
+    printf($flog "[%04d-%02d-%02d %02d:%02d:%02d,%03.0f] end - elapse %02d:%02d:%02d (%5d sec)\n", 1900 + $year, $mon + 1, $day, $hour, $min, $sec,
+           ($msec / 1000), ($elapse / 3600), ($elapse % 3600 / 60), ($elapse % 3600 % 60), $elapse);
+    close ($flog);
+    printf(STDERR "[%04d-%02d-%02d %02d:%02d:%02d,%03.0f] end - elapse %02d:%02d:%02d (%5d sec)\n", 1900 + $year, $mon + 1, $day, $hour, $min, $sec,
+           ($msec / 1000), ($elapse / 3600), ($elapse % 3600 / 60), ($elapse % 3600 % 60), $elapse);
+}
+
+sub map_comm
+{
+    my ($grp, @comm) = @_;
+
+    my $comm = join (' ', @comm);
+    my $Comm = {
+        system => {
+            'check update'    => 'check-update',
+            'new release'     => 'new-release',
+            'releases'        => 'releases',
+        },
+        publications => {
+            'harvest'         => 'pubs-harvest',
+            'convert'         => 'pubs-convert',
+            'clean orgs'      => 'pubs-clean-orgs',
+            'orgs country'    => 'pubs-orgs-country',
+            'diff'            => 'pubs-diff',
+            'load'            => 'pubs-load',
+        },
+        incites => {
+            'harvest'         => 'incites-harvest',
+            'check'           => 'incites-check',
+            'clean'           => 'incites-clean',
+            'load'            => 'incites-load',
+        },
+        people => {
+            'process'         => 'people-process',
+        },
+        data => {
+            'enhance'         => 'data-enhance',
+        },
+        cache => {
+            'refresh'         => 'cache-refresh',
+            'reset'           => 'cache-reset',
+        },
+    };
+    my $match = 0;
+    my $group = '';
+    foreach my $g (keys (%{$Comm})) {
+        if ($grp eq substr ($g, 0, length ($grp))) {
+            $match++;
+            $group = $g;
+        }
+    }
+    if ($match == 0) {
+        &usage ("fatal: command group not found: '%s'", $grp);
+    }
+    if ($match > 1) {
+        &usage ("fatal: ambiguous command group: '%s'", $grp);
+    }
+    $match = 0;
+    my $command = '';
+    foreach my $c (keys (%{$Comm->{$group}})) {
+        if ($comm eq substr ($c, 0, length ($comm))) {
+            $match++;
+            $command = $Comm->{$group}{$c};
+        }
+    }
+    if ($match == 0) {
+        &usage ("fatal: command not found: '%s %s'", $group, $comm);
+    }
+    if ($match > 1) {
+        &usage ("fatal: ambiguous command: '%s %s'", $group, $comm);
+    }
+    return ($command);
+}
+
+sub usage
+{
+    my ($msg, @args) = @_;
+
+    if ($msg) {
+        printf (STDERR "\n" . $msg . "\n\n", @args);
+    }
+    warn ("usage: rap-etl system check update\n");
+    warn ("       rap-etl system new release\n");
+    warn ("       rap-etl system releases\n\n");
+
+    warn ("       rap-etl publications harvest\n");
+    warn ("       rap-etl publications convert\n");
+    warn ("       rap-etl publications clean orgs\n");
+    warn ("       rap-etl publications orgs country\n");
+    warn ("       rap-etl publications diff\n");
+    warn ("       rap-etl publications load\n\n");
+
+    warn ("       rap-etl incites harvest\n");
+    warn ("       rap-etl incites check\n");
+    warn ("       rap-etl incites clean\n");
+    warn ("       rap-etl incites load\n\n");
+
+    warn ("       rap-etl people process\n\n");
+
+    warn ("       rap-etl data enhance\n\n");
+
+    warn ("       rap-etl cache reset\n");
+    warn ("       rap-etl cache refresh\n");
+    exit (1);
+}

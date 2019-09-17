@@ -1,0 +1,283 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use English;
+use Time::HiRes qw(time);
+use JSON::XS;
+use Fatal qw(open);
+
+my $YearStart = 2007;
+my $YearEnd   = &curentYear ();
+my $DTUdept = [
+    '',
+    'dtusuborg-centre-for-oil-and-gas-dtu',
+    'dtusuborg-dtu-aqua',
+    'dtusuborg-dtu-bioengineering',
+    'dtusuborg-dtu-bioinformatics',
+    'dtusuborg-dtu-biosustain',
+    'dtusuborg-dtu-business',
+    'dtusuborg-dtu-chemical-engineering',
+    'dtusuborg-dtu-chemistry',
+    'dtusuborg-dtu-civil-engineering',
+    'dtusuborg-dtu-compute',
+    'dtusuborg-dtu-diplom',
+    'dtusuborg-dtu-electrical-engineering',
+    'dtusuborg-dtu-energy',
+    'dtusuborg-dtu-environment',
+    'dtusuborg-dtu-food',
+    'dtusuborg-dtu-fotonik',
+    'dtusuborg-dtu-health-tech',
+    'dtusuborg-dtu-management',
+    'dtusuborg-dtu-mechanical-engineering',
+    'dtusuborg-dtu-nanolab',
+    'dtusuborg-dtu-nanotech',
+    'dtusuborg-dtu-nutech',
+    'dtusuborg-dtu-physics',
+    'dtusuborg-dtu-space',
+    'dtusuborg-dtu-systems-biology',
+    'dtusuborg-dtu-vet',
+    'dtusuborg-dtu-wind-energy',
+    'dtusuborg-ris-dtu',
+    'dtusuborg-dtu-department-unknown',
+];
+
+my $args = {arch => 1};
+while ((@ARGV) && ($ARGV[0] =~ m/^-/)) {
+    my $arg = shift (@ARGV);
+    if (($arg eq '--keep') || ($arg eq '-k')) {
+        $args->{'arch'} = 0;
+        next;
+    }
+    warn ("unknown argument: $arg\n");
+    die ("usage: sudo rap-prefetch [--keep]\n");
+}
+warn ("starting caching...\n");
+my $MINPUB = 100;
+my $cacheRoot = '/var/lib/vivo-update/cache';
+
+&log ('i', 'pre-fetching cache');
+#
+#Archive cache
+if (($args->{'arch'}) && (-e $cacheRoot)) {
+    if ($REAL_USER_ID > 0) {
+        die ("usage: sudo rap-prefetch [--keep]\n");
+    }
+    my ($sec, $min, $hour, $day, $mon, $year) = localtime (time);
+    my $date = sprintf ('%04d-%02d-%02d.%02d.%02d.%02d', 1900 + $year, $mon + 1, $day, $hour, $min, $sec);
+    &log ('w', 'archiving current cache to: %s.%s', $cacheRoot, $date);
+    system ("sudo mv $cacheRoot $cacheRoot.$date");
+    if (-e $cacheRoot) {
+        &log ('f', "failed to archive cache!");
+        exit (1);
+    }
+    system ("tar cf $cacheRoot.$date.tar $cacheRoot.$date && rm -rf $cacheRoot.$date");
+    system ("gzip -9v $cacheRoot.$date.tar");
+}
+
+&fetch_worldmap ($YearStart, $YearEnd, $DTUdept);
+my $countries = &load_countries ($cacheRoot, $YearStart, $YearEnd);
+&fetch_countries ($countries, $YearStart, $YearEnd, $DTUdept);
+my $orglist = &extract_orgs ($cacheRoot, $YearStart, $YearEnd, $countries, $MINPUB);
+&fetch_orgs ($orglist, $YearStart, $YearEnd);
+&fetch_partners ($YearStart, $YearEnd, $DTUdept);
+&fetch_funders ($YearStart, $YearEnd, $DTUdept);
+&fetch_subjects ($YearStart, $YearEnd, $DTUdept);
+exit (0);
+
+sub fetch_worldmap
+{
+    my ($YearStart, $YearEnd, $DTUdept) = @_;
+
+    my $count = {};
+    my $start = time;
+    &log ('i', 'fetching worldmap');
+    my $n = 0;
+    foreach my $dept (@{$DTUdept}) {
+        for (my $sy = $YearStart; $sy <= $YearEnd; $sy++) {
+            for (my $ey = ($YearEnd - 1); $ey <= $YearEnd; $ey++) {
+                my $args = "dept=$dept&startYear=$sy&endYear=$ey";
+                system ("wget -O /dev/null -o /dev/null 'http://127.0.0.1/vivo-update/vds/report/worldmap?$args'");
+                $n++;
+            }
+        }
+    }
+    &log ('i', 'fetched %d worldmap in %6.4f seconds.', $n, (time - $start));
+}
+
+sub load_countries
+{
+    my ($cacheRoot, $YearStart, $YearEnd) = @_;
+
+    my $count = {};
+    my $countries = &load_json ($cacheRoot, 'worldmap/worldmap.all.' . $YearStart . '.' . $YearEnd);
+    my @countries = ();
+    foreach my $grp (@{$countries->{'summary'}}) {
+        $count->{'country-total'}++;
+        push (@countries, $grp->{'code'});
+    }
+    &log ('i', 'loaded %d countries', $count->{'country-total'});
+    return (\@countries);
+}
+
+sub fetch_countries
+{
+    my ($countries, $YearStart, $YearEnd, $DTUdept) = @_;
+
+    my $count = {};
+    my $start = time;
+    &log ('i', 'fetching countries');
+    foreach my $cnt (sort (@{$countries})) {
+        my $s = time;
+        my $n = 0;
+        foreach my $dept (@{$DTUdept}) {
+            for (my $sy = $YearStart; $sy <= $YearEnd; $sy++) {
+                for (my $ey = ($YearEnd - 1); $ey <= $YearEnd; $ey++) {
+                    my $args = "dept=$dept&startYear=$sy&endYear=$ey";
+                    system ("wget -O /dev/null -o /dev/null 'http://127.0.0.1/vivo-update/vds/report/country/$cnt?$args'");
+                    $n++;
+                }
+            }
+        }
+        $count->{'country-fetched'}++;
+        &log ('i', 'fetched country %3d of %d: %s (%d ite in %6.4f sec)', $count->{'country-fetched'}, ($#{$countries} + 1), $cnt, $n, (time - $s));
+    }
+    &log ('i', 'fetched %d countries in %6.4f seconds', $count->{'country-fetched'}, (time - $start));
+}
+
+sub extract_orgs
+{
+    my ($cacheRoot, $YearStart, $YearEnd, $countries, $MINPUB) = @_;
+
+    my $orglist = {};
+    my $count = {};
+    foreach my $cnt (@{$countries}) {
+        my $orgs = &load_json ($cacheRoot, "country/$cnt/country-$cnt.all." . $YearStart . '.' . $YearEnd);
+        foreach my $org (@{$orgs->{'orgs'}}) {
+            if ($org->{'publications'} >= $MINPUB) {
+                $org->{'org'} =~ s/.*\///;
+                if (exists ($orglist->{$org->{'org'}})) {
+                    &log ('w', 'duplicate org with %4d publications vs %4d: %s', $org->{'publications'}, $orglist->{$org->{'org'}}, $org->{'org'});
+                } else {
+                    $count->{'org+200'}++;
+                    $orglist->{$org->{'org'}} = $org->{'publications'};
+                }
+            } else {
+                $count->{'org-200'}++;
+            }
+        }
+    }
+    &log ('i', 'found %d orgs with %d or more publication out of %d orgs total', $count->{'org+200'}, $MINPUB, ($count->{'org+200'} + $count->{'org-200'}));
+    return ($orglist);
+}
+
+sub fetch_orgs
+{
+    my ($orglist, $YearStart, $YearEnd) = @_;
+
+    &log ('i', 'fetching organisations');
+    my $count = {};
+    my $start = time;
+    foreach my $org (keys (%{$orglist})) {
+        $count->{'org+200'}++;
+    }
+    foreach my $org (sort {$orglist->{$b} <=> $orglist->{$a}} keys (%{$orglist})) {
+        my $rep = 0;
+        my $s = time;
+        for (my $sy = $YearStart; $sy <= $YearEnd; $sy++) {
+            for (my $ey = ($YearEnd - 1); $ey <= $YearEnd; $ey++) {
+                if ($sy <= $ey) {
+                    system ("wget -O /dev/null -o /dev/null 'http://127.0.0.1/vivo-update/vds/report/org/$org/$sy/$ey'");
+                    $rep++;
+                }
+            }
+        }
+        $count->{'org-fetched'}++;
+        &log ('i', 'fetched org %3d of %d: %4d pubs in %9.4f sec (%8.4f sec/rep) for %s', $count->{'org-fetched'}, $count->{'org+200'}, $orglist->{$org},
+              (time - $s), ((time - $s) / $rep), $org);
+    }
+    &log ('i', 'fetched %d orgs in %6.4f seconds', $count->{'org-fetched'}, (time - $start));
+}
+
+sub fetch_partners
+{
+    my ($YearStart, $YearEnd, $DTUdept) = @_;
+
+    my $count = {};
+    my $start = time;
+    &log ('i', 'fetching partners');
+    foreach my $dept (@{$DTUdept}) {
+        for (my $sy = $YearStart; $sy <= $YearEnd; $sy++) {
+            for (my $ey = ($YearEnd - 1); $ey <= $YearEnd; $ey++) {
+                my $args = "dept=$dept&startYear=$sy&endYear=$ey";
+                system ("wget -O /dev/null -o /dev/null 'http://127.0.0.1/vivo-update/vds/report/partners?$args'");
+                $count->{'partners-fetched'}++;
+            }
+        }
+    }
+    &log ('i', 'fetched %d partners in %6.4f seconds', $count->{'partners-fetched'}, (time - $start));
+}
+
+sub fetch_funders
+{
+    my ($YearStart, $YearEnd, $DTUdept) = @_;
+
+    my $count = {};
+    my $start = time;
+    &log ('i', 'fetching funders');
+    foreach my $dept (@{$DTUdept}) {
+        for (my $sy = $YearStart; $sy <= $YearEnd; $sy++) {
+            for (my $ey = ($YearEnd - 1); $ey <= $YearEnd; $ey++) {
+                my $args = "dept=$dept&startYear=$sy&endYear=$ey";
+                system ("wget -O /dev/null -o /dev/null 'http://127.0.0.1//vivo-update/vds/report/funders?$args'");
+                $count->{'funders-fetched'}++;
+            }
+        }
+    }
+    &log ('i', 'fetched %d funders in %6.4f seconds', $count->{'funders-fetched'}, (time - $start));
+}
+
+sub fetch_subjects
+{
+    my ($YearStart, $YearEnd, $DTUdept) = @_;
+
+    my $count = {};
+    my $start = time;
+    &log ('i', 'fetching subjects');
+    foreach my $dept (@{$DTUdept}) {
+        for (my $sy = $YearStart; $sy <= $YearEnd; $sy++) {
+            for (my $ey = ($YearEnd - 1); $ey <= $YearEnd; $ey++) {
+                my $args = "dept=$dept&startYear=$sy&endYear=$ey";
+                system ("wget -O /dev/null -o /dev/null 'http://127.0.0.1//vivo-update/vds/report/copub-subjects?$args'");
+                $count->{'subjects-fetched'}++;
+            }
+        }
+    }
+    &log ('i', 'fetched %d subjects in %6.4f seconds', $count->{'subjects-fetched'}, (time - $start));
+}
+
+sub load_json
+{
+    my ($root, $file) = @_;
+
+    warn ("loading $root/$file ...\n");
+    open (my $fin, "$root/$file");
+    my $json = join ('', <$fin>);
+    close ($fin);
+    return (decode_json ($json));
+}
+
+sub log
+{
+    my ($level, $msg, @args) = @_;
+    my ($sec, $min, $hour, $day, $mon, $year) = localtime (time);
+
+    printf (STDERR "%04d-%02d-%02d %02d:%02d:%02d %s $msg\n", 1900 + $year, $mon + 1, $day, $hour, $min, $sec, $level, @args);
+}
+
+sub curentYear
+{
+    my ($sec, $min, $hour, $day, $mon, $year) = localtime (time);
+
+    return (1900 + $year);
+}
